@@ -3,3 +3,6 @@
 *-cache.lib
 fp-info-cache
 #keep gerbers for now
+~*.lck
+*.lck
+*-backups/
