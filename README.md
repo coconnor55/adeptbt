@@ -12,6 +12,8 @@ Credit-card sized nRF52840 control board (Raytac MDBT50Q-1MV2).
 
 ## Hardware
 
-KiCad project: [`hardware/`](hardware/) — schematic, PCB placement, silkscreen (rev 0.1).
+KiCad project: [`hardware/`](hardware/) — schematic, PCB placement, silkscreen (rev 0.4 target).
 
-See [`docs/DESIGN.md`](docs/DESIGN.md) and [`hardware/README.md`](hardware/README.md). Open `hardware/adeptbt.kicad_pro` in KiCad 8+ to finish footprints, routing, and Gerbers.
+See [`docs/DESIGN.md`](docs/DESIGN.md), [`docs/JLCPCB_BOM.md`](docs/JLCPCB_BOM.md), [`hardware/README.md`](hardware/README.md). Repo decisions and open work: [`memory/`](memory/).
+
+Open `hardware/adeptbt.kicad_pro` in KiCad 10 to finish power discretes, routing, and Gerbers.

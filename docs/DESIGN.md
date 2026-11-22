@@ -12,23 +12,24 @@ Credit-card PCB (~85.6 × 53.98 mm), 4-layer preferred.
 
 ## Power
 - USB-C: program + can run/charge MCU path
-- LiPo JST-PH + charger ~400–500 mA
-- VIN 5–18 V: P-FET reverse + TVS + PPTC
-- Buck → 5 V; LDO → 3.3 V (module)
-- Stepper VM jumperable to VIN or external (24 V = external protection)
+- LiPo JST-PH + **MCP73871** charger ~400–500 mA (DNP OK)
+- VIN **5–18 V**: P-FET reverse + **SMBJ24A** + PPTC
+- Buck **AP63205** → 5 V; LDO **AMS1117-3.3** → module
+- Stepper VM jumperable to VIN or external (ext >18 V needs own protect)
 
 ## Connectors (layout)
-- Long edge A: 2× 6-pin screw — steppers `A1 A2 B1 B2 VM GND`
-- Long edge B: 1× 6-pin screw — `VIN GND V+ OUT1 V+ OUT2`
+- Long edge A: 2× TE 2383941-6 — steppers `A1 A2 B1 B2 VM GND`
+- Long edge B: 1× TE 2383941-6 — `VIN GND V+ OUT1 V+ OUT2` + **5.5×2.1 barrel** (`J_DC`) on `VIN_RAW`
 - Short edge: USB-C
-- Analog header: 4× AIN + 3V3 + 5V + GND; per-AIN jumper Direct / ÷5 V
-- Digital header: 4× GPIO + 3V3 + GND
-- SWD header, BAT JST
+- Analog / digital / SWD headers; BAT JST
 
 ## Mechanical
 - 4× M2 mounting holes (corners)
 - Silkscreen: AdeptBT, pin labels, jumper legends
 
-## Part SKUs (targets)
-- Screw terminals: Phoenix MKDS 1/6-3,81 SMD (or equiv. 6-pos 3.81 mm SMD)
-- Jumpers: 2.54 mm pin headers
+## Part SKUs (JLCPCB-first — see `JLCPCB_BOM.md`)
+- MCU: Raytac MDBT50Q-1MV2 (**C5118826**)
+- Drivers: TMC2209-LA (**C465949**)
+- Screws: TE **2383941-6** (**C3816695**) 7 A
+- Charger: **MCP73871** (**C5121473**)
+- TVS: **SMBJ24A**; barrel: 5.5×2.1 on VIN

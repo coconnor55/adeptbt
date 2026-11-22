@@ -46,18 +46,19 @@ def place_footprint(
         mod_text,
     )
 
-    # Force position
-    if re.search(r"\(at [^\)]+\)", mod_text):
+    # Footprint-level (at) only — do not overwrite property (at ...)
+    at_line = f"(at {x:.4f} {y:.4f} {angle:g})"
+    if re.search(r"\n\t\(at [-\d.]+ [-\d.]+", mod_text):
         mod_text = re.sub(
-            r"\(at [^\)]+\)",
-            f"(at {x:.4f} {y:.4f} {angle:g})",
+            r"\n\t\(at [^\)]+\)",
+            f"\n\t{at_line}",
             mod_text,
             count=1,
         )
     else:
         mod_text = re.sub(
-            r'(\(footprint "[^"]+")',
-            rf'\1\n\t(at {x:.4f} {y:.4f} {angle:g})',
+            r'(\(layer "[^"]+"\))',
+            rf"\1\n\t{at_line}",
             mod_text,
             count=1,
         )
@@ -115,36 +116,22 @@ def build_pcb() -> str:
 
     # Steppers — top long edge (THT MKDS pins along edge; body into board)
     # Footprint origin is typically at pin1; center-ish placement
-    fps.append(
-        place_footprint(
-            load_mod("TerminalBlock_Phoenix_MKDS-1-6-3.81_1x06_P3.81mm_Horizontal.kicad_mod"),
-            10.0,
-            2.5,
-            0,
-            "J_STEP1",
-            "STEPPER1",
-        )
-    )
-    fps.append(
-        place_footprint(
-            load_mod("TerminalBlock_Phoenix_MKDS-1-6-3.81_1x06_P3.81mm_Horizontal.kicad_mod"),
-            48.0,
-            2.5,
-            0,
-            "J_STEP2",
-            "STEPPER2",
-        )
-    )
+    term = "TE_2383945-6_1x06_P3.81mm_SMD.kicad_mod"  # geometry = TE 2383941-6
+    fps.append(place_footprint(load_mod(term), 22.0, 4.0, 0, "J_STEP1", "TE_2383941-6"))
+    fps.append(place_footprint(load_mod(term), 58.0, 4.0, 0, "J_STEP2", "TE_2383941-6"))
 
     # Power/outs — bottom long edge, rotated 180 so wires exit south
+    fps.append(place_footprint(load_mod(term), 48.0, H - 4.0, 180, "J_PWR", "TE_2383941-6"))
+
+    # 5.5×2.1 barrel — bottom edge, opening south (plug from below)
     fps.append(
         place_footprint(
-            load_mod("TerminalBlock_Phoenix_MKDS-1-6-3.81_1x06_P3.81mm_Horizontal.kicad_mod"),
-            70.0,
-            H - 2.5,
+            load_mod("BarrelJack_CUI_PJ-063AH_Horizontal.kicad_mod"),
+            14.0,
+            H - 1.5,
             180,
-            "J_PWR",
-            "PWR_OUT",
+            "J_DC",
+            "5.5x2.1",
         )
     )
 
@@ -160,39 +147,29 @@ def build_pcb() -> str:
         )
     )
 
-    # MCU
-    fps.append(
-        place_footprint(
-            load_mod("Raytac_MDBT50Q.kicad_mod"),
-            42.0,
-            28.0,
-            0,
-            "U1",
-            "MDBT50Q-1MV2",
-        )
+    # Prefer JLCPCB/EasyEDA footprints when present
+    jlc = OUT / "libs" / "jlc" / "jlc.pretty"
+    mcu_mod = (
+        (jlc / "COMM-SMD_MDBT50Q-1MV2-1.kicad_mod")
+        if (jlc / "COMM-SMD_MDBT50Q-1MV2-1.kicad_mod").exists()
+        else (LIB / "Raytac_MDBT50Q.kicad_mod")
+    )
+    tmc_mod = (
+        (jlc / "QFN-28_L5.0-W5.0-P0.50-BL-EP.kicad_mod")
+        if (jlc / "QFN-28_L5.0-W5.0-P0.50-BL-EP.kicad_mod").exists()
+        else (LIB / "QFN-28-1EP_5x5mm_P0.5mm_EP3.25x3.25mm_ThermalVias.kicad_mod")
     )
 
-    # TMC2209 x2
+    def load_path(p: Path) -> str:
+        text = p.read_text().strip()
+        text = re.sub(r'\(uuid "[^"]+"\)', lambda _m: f'(uuid "{uid()}")', text)
+        return text
+
     fps.append(
-        place_footprint(
-            load_mod("QFN-28-1EP_5x5mm_P0.5mm_EP3.25x3.25mm_ThermalVias.kicad_mod"),
-            20.0,
-            22.0,
-            0,
-            "U2",
-            "TMC2209",
-        )
+        place_footprint(load_path(mcu_mod), 42.0, 28.0, 0, "U1", "MDBT50Q-1MV2")
     )
-    fps.append(
-        place_footprint(
-            load_mod("QFN-28-1EP_5x5mm_P0.5mm_EP3.25x3.25mm_ThermalVias.kicad_mod"),
-            20.0,
-            34.0,
-            0,
-            "U3",
-            "TMC2209",
-        )
-    )
+    fps.append(place_footprint(load_path(tmc_mod), 20.0, 22.0, 0, "U2", "TMC2209-LA"))
+    fps.append(place_footprint(load_path(tmc_mod), 20.0, 34.0, 0, "U3", "TMC2209-LA"))
 
     # BAT
     fps.append(
@@ -243,7 +220,8 @@ def build_pcb() -> str:
         silk(W / 2, H / 2 - 3.2, "coconnor55", 1.0),
         silk(22, 12, "A1 A2 B1 B2 VM GND", 0.75),
         silk(60, 12, "A1 A2 B1 B2 VM GND", 0.75),
-        silk(43, H - 12, "VIN GND V+ OUT1 V+ OUT2", 0.75),
+        silk(48, H - 12, "VIN GND V+ OUT1 V+ OUT2", 0.75),
+        silk(14, H - 14, "J_DC 5.5x2.1", 0.7),
         silk(74, 10, "AIN0-3 3V3 5V GND", 0.7),
         silk(74, 48, "D0-3 3V3 GND", 0.7),
         silk(32, 42, "JP V+: 3V3/5V/VIN", 0.65),
