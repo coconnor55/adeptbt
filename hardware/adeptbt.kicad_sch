@@ -1,0 +1,48 @@
+(kicad_sch
+  (version 20231120)
+  (generator "gen_adeptbt_pcb")
+  (generator_version "8.0")
+  (uuid "46fc2e97-3959-4095-a2dc-23d7ed974c68")
+  (paper "A3")
+  (title_block
+    (title "AdeptBT")
+    (date "2026-11-22")
+    (rev "0.1")
+    (company "coconnor55")
+    (comment 1 "Functional schematic — wire symbols to footprints in KiCad before fab")
+  )
+  (lib_symbols)
+  (text "AdeptBT — functional schematic (rev 0.1)"
+    (exclude_from_sim no) (at 20 10 0)
+    (effects (font (size 3 3)) (justify left bottom))
+    (uuid "f688142e-ac4e-46e6-ace6-e6ca03a22b06")
+  )
+  (text "POWER\nUSB-C 5V --OR-- VIN 5-18V (PPTC+P-FET+TVS)\n  -> Buck 5V\n  -> Charger 400-500mA -> BAT JST\n  -> LDO 3.3V -> U1 MDBT50Q-1MV2\nJumpers: V+ = 3V3|5V|VIN ; VM1/VM2 = VIN|ext"
+    (exclude_from_sim no) (at 20 25 0)
+    (effects (font (size 1.5 1.5)) (justify left top))
+    (uuid "13bf34ea-90e7-4ad1-bb0a-b7ddbd457cd3")
+  )
+  (text "MCU U1 Raytac MDBT50Q-1MV2\nUSB D+/D- from USB-C\nSWD header\nUART/STEP/DIR/EN -> U2 U3 TMC2209\nGPIO -> Q2 Q3 2N2222 (OUT1 OUT2) + flyback\nAIN0-3 -> analog header (+ dividers)\nD0-3 -> digital header\nLEDs: PWR CHG USER"
+    (exclude_from_sim no) (at 20 55 0)
+    (effects (font (size 1.5 1.5)) (justify left top))
+    (uuid "e7134590-1684-4073-b831-cd406dfed8d7")
+  )
+  (text "MOTION\nU2 TMC2209 -> J_STEP1 A1 A2 B1 B2 VM GND\nU3 TMC2209 -> J_STEP2 A1 A2 B1 B2 VM GND\nVM via jumper to VIN or external (<=24V ext protect)"
+    (exclude_from_sim no) (at 140 25 0)
+    (effects (font (size 1.5 1.5)) (justify left top))
+    (uuid "2a4be103-5aa0-4da8-b4b3-7726c2f1dada")
+  )
+  (text "CONNECTORS\nJ_STEP1/2: 6-pin screw 3.81mm SMD\nJ_PWR: VIN GND V+ OUT1 V+ OUT2\nJ_AN: AIN0-3 3V3 5V GND\nJ_DG: D0-3 3V3 GND\nJ_BAT: JST-PH\nJ_USB: USB-C\nJ_SWD: SWDIO SWCLK GND 3V3 RST"
+    (exclude_from_sim no) (at 140 55 0)
+    (effects (font (size 1.5 1.5)) (justify left top))
+    (uuid "07197204-9f8b-4090-b3fb-31a076838c3d")
+  )
+  (text "See docs/DESIGN.md and docs/BOM.md. Open hardware/adeptbt.kicad_pcb in KiCad 8+,\nreplace placeholder footprints with vendor parts, complete netlist, pour GND, DRC, then Gerbers."
+    (exclude_from_sim no) (at 20 95 0)
+    (effects (font (size 1.3 1.3)) (justify left top))
+    (uuid "67d4bd96-97b5-4619-baca-7a23646ea03c")
+  )
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+)

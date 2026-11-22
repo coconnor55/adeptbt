@@ -10,4 +10,8 @@ Credit-card sized nRF52840 control board (Raytac MDBT50Q-1MV2).
 - Analog header (4× AIN, jumperable 3.3/5 V dividers) and digital GPIO header
 - 6-pin screw terminals: steppers (`A1 A2 B1 B2 VM GND`) and power/outs (`VIN GND V+ OUT1 V+ OUT2`)
 
-PCB design (schematic, layout, Gerbers) lives in this repo.
+## Hardware
+
+KiCad project: [`hardware/`](hardware/) — schematic, PCB placement, silkscreen (rev 0.1).
+
+See [`docs/DESIGN.md`](docs/DESIGN.md) and [`hardware/README.md`](hardware/README.md). Open `hardware/adeptbt.kicad_pro` in KiCad 8+ to finish footprints, routing, and Gerbers.
