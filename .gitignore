@@ -1,0 +1,5 @@
+*.kicad_pcb-bak
+*-backups/
+*-cache.lib
+fp-info-cache
+#keep gerbers for now

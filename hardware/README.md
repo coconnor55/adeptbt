@@ -1,16 +1,17 @@
-# AdeptBT hardware (rev 0.1)
+# AdeptBT hardware (rev 0.2)
 
-KiCad 8+ project generated from the locked AdeptBT spec.
+KiCad 10 project from the locked AdeptBT spec. Footprints are real KiCad library parts (copied under `libs/AdeptBT.pretty`).
 
 | File | Purpose |
 |------|---------|
 | `adeptbt.kicad_pro` | Project |
-| `adeptbt.kicad_sch` | Functional schematic (block-level; complete symbol wiring in KiCad) |
-| `adeptbt.kicad_pcb` | Board outline, placement, silkscreen, connector pads |
+| `adeptbt.kicad_sch` | Functional schematic (block-level; complete symbol wiring next) |
+| `adeptbt.kicad_pcb` | Outline, placement, silkscreen with real footprints |
+| `exports/` | `adeptbt_pcb.svg`, `adeptbt_schematic.pdf` |
+| `gerbers/` | Preliminary Gerbers + drill (placement only — not fab-ready) |
+| `libs/AdeptBT.pretty/` | Raytac MDBT50Q, QFN-28, USB-C, JST-PH, MKDS-1-6, headers, M2 |
 | `silkscreen_preview.svg` | Quick silk layout preview |
-| `../docs/DESIGN.md` | Locked design |
-| `../docs/BOM.md` | Preliminary BOM |
-| `../tools/gen_adeptbt_pcb.py` | Regenerator for placement/silk |
+| `../tools/gen_adeptbt_pcb.py` | Regenerator |
 
 ## Layout (credit card 85.6 × 53.98 mm)
 

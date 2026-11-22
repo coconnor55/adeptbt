@@ -16,7 +16,7 @@ Exact LCSC/DigiKey PNs locked at fab time; functional list:
 | F1 | 1 | PPTC ~2 A hold on VIN |
 | J_USB | 1 | USB-C receptacle (16-pin mid-mount or equivalent) |
 | J_BAT | 1 | JST-PH 2.0 2-pin SMD |
-| J_STEP1 J_STEP2 J_PWR | 3 | 6-pos screw 3.81 mm SMD |
+| J_STEP1 J_STEP2 J_PWR | 3 | Phoenix MKDS-1-6 3.81 mm (THT in KiCad lib; SMD variant OK if sourced) |
 | J_AN J_DG J_SWD | 3 | Pin headers 2.54 mm |
 | JP_* | — | 2.54 mm jumpers: V+, VM×2, AIN dividers×4 |
 | LED1-3 | 3 | Power / charge / user |
