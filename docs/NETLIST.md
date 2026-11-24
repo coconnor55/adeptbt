@@ -1,4 +1,4 @@
-# AdeptBT — net / pin assignment (rev 0.3)
+# AdeptBT — net / pin assignment (rev 0.5)
 
 Credit-card board. Complete this in KiCad schematic next.
 
@@ -10,10 +10,10 @@ Credit-card board. Complete this in KiCad schematic next.
 | VIN | after PPTC+P-FET+**SMBJ24A** | Buck in; JP_VM1/2; JP_V+ |
 | GND | system | everywhere |
 | USB_5V | J_USB VBUS | OR into 5V rail / charger path |
-| +5V | Buck out (+ USB OR) | Charger in; JP_V+; J_AN 5V; TMC VCC_IO option |
-| +3V3 | LDO from bat/sys | U1; logic; J_AN/J_DG 3V3; LEDs |
+| +5V | Buck out (+ USB OR) | Charger in; J_AN 5V (sensor supply); TMC VCC_IO option |
+| +3V3 | LDO from bat/sys | U1; logic; J_AN/J_DG 3V3; JP_V+; LEDs |
 | VBAT | J_BAT+ | Charger out; LDO in (power path) |
-| V+ | jumper 3V3/5V/VIN | J_PWR.3, J_PWR.5 |
+| V+ | jumper 3V3 / VIN | J_PWR.3, J_PWR.5 |
 | VM1 | jumper VIN/ext | J_STEP1.5 → U2 VS |
 | VM2 | jumper VIN/ext | J_STEP2.5 → U3 VS |
 
@@ -41,9 +41,9 @@ Credit-card board. Complete this in KiCad schematic next.
 3 switch (NC if unused)  
 
 ### J_AN (1×07)
-1–4 AIN0–AIN3 (P0.02/03/04/05 or P0.28–31 — lock in sch)  
+1–4 AIN0–AIN3 (3.3 V range, direct to MCU — external divider if needed)  
 5 +3V3  
-6 +5V  
+6 +5V (sensor supply only; not a divider rail)  
 7 GND  
 
 ### J_DG (1×06)
@@ -75,10 +75,18 @@ BAT: + / − (polarity marked)
 
 ## U2 / U3 TMC2209
 
-Wire per datasheet: VS=VM, GND pad, VCC_IO=+3V3, 5VOUT cap, charge pump C, sense R (or internal), STEP/DIR/ENN/PDN_UART to U1.
+Wire per datasheet: VS=VM, GND pad, VCC_IO=+3V3, 5VOUT cap, charge pump C, sense R `RSA`/`RSB` 0.11 Ω to GND on `BRA`/`BRB`, STEP/DIR/ENN/PDN_UART to U1.
+
+## Power path
+
+`VIN_RAW` → F1 PPTC → `VIN_F` → Q1 AO3407 (S=`VIN_F`, D=`VIN`, G=GND) → D1 SMBJ24A (`VIN`–GND) → `VIN` → U4 AP63205 → `SW`/`L1` → `+5V` → U6 AMS1117 → `+3V3`. U5 MCP73871 on `+5V` / `VBAT` / `CHG_STAT` (PROG1=2 kΩ).
 
 ## Jumpers
 
-- JP_V+: 3V3 / 5V / VIN → V+  
-- JP_VM1, JP_VM2: VIN / open(ext)  
-- JP_AIN0–3: direct / ÷5V divider  
+- JP_V+1: 1×3 — 3V3 / V+ / VIN (short adjacent pins: 3V3↔V+ or V+↔VIN)  
+- JP_VM1, JP_VM2: 1×2 — VIN / EXT (open = external VM)  
+- No JP_AIN — AIN is 3.3 V only; use an external divider when needed  
+
+## Decoupling
+
+Owner: [`docs/DECOUPLING.md`](DECOUPLING.md). TMC `5VOUT1`/`5VOUT2` are local (not board `+5V`). Cap refs C1–C31 + buck/LDO/charger caps on schematic rev 0.5 / PCB rev 2.1.

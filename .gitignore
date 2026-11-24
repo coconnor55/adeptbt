@@ -8,3 +8,15 @@ fp-info-cache
 *-backups/
 __pycache__/
 *.pyc
+
+# Freerouting local install (download separately)
+tools/freerouting/*.jar
+tools/freerouting/*.tar.gz
+tools/freerouting/freerouting-cli/
+hardware/.history/
+hardware/exports/*.dsn
+hardware/exports/*.ses
+hardware/exports/freerouting_*.log
+hardware/exports/drc_*.json
+hardware/exports/en/
+hardware/exports/layers/

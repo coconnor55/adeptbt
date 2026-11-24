@@ -1,8 +1,23 @@
 # Open steps
 
-- Wire power discretes on schematic: PPTC, P-FET, **SMBJ24A**, AP63205, **MCP73871**, AMS1117, TMC sense Rs / charge-pump caps. Owners: `docs/NETLIST.md`, `tools/gen_adeptbt_sch.py` / KiCad GUI. Stopped: labels + majors only so far.
+- ~~Finish Freerouting leftovers (VM/CHG_STAT/D2/D3/SWD, track_width, ant keepout).~~ Done PCB **3.5**: leftover Freerouting pass + widen 0.2 mm + ant_keepout y≥50.5 + GND_F FULL; DRC unconnected **4** (GND_F pour islands only — no open pad nets); shorts/track_width/items_not_allowed **0**. Snapshot: `hardware/snapshots/freeroute-leftover-3.5.kicad_pcb`. Optional: stitch remaining F.Cu GND islands in pcbnew without crossing +5V.
+- Routing (path B): net classes PowerHV/PowerLV/Signal in `adeptbt.kicad_pro`. Stub auto-router `tools/route_priority.py` leaves clearance/shorts on this density — do **not** treat a full auto pass as fab-ready. Prefer Freerouting for leftovers. Snapshot: `hardware/snapshots/pre-route-2026-11-24.kicad_pcb`.
+- Sch **0.12** / PCB **3.7** (PWR1/CHG1/USR1). Annotate: **Keep existing**. Reload board from disk after agent edits (do not overwrite routes with an empty buffer).
 - Confirm TE 2383941-6 pad geometry vs datasheet (current footprint is approximate). Owner: `hardware/libs/AdeptBT.pretty/TE_2383945-6_…`.
-- Pick live LCSC SKUs for barrel, AO3407-class P-FET, PPTC, SMBJ24A at order time. Owner: `docs/JLCPCB_BOM.md`.
-- PCB: route, GND pour, DRC, fab Gerbers. Owner: `hardware/adeptbt.kicad_pcb`. Placement + silk only today.
+- Pick live LCSC SKUs for barrel, AO3407-class P-FET, PPTC, SMBJ24A, L1 4.7 µH, sense 0.11 Ω at order time. Owner: `docs/JLCPCB_BOM.md`.
+- PCB fab **rev 3.10** (crowding moves C31/C4/F1/L1/RCC1/J_AN1; back silk `AdeptBT rev 3.10`; **12 GND stitch vias** incl. C41/C2/USB islands): Freerouting 0 unrouted → DRC **shorts/clearance/unconnected/isolated_copper = 0**. Remaining: USB GCT hole_clearance×4, lib_footprint_mismatch J_DC. Gerbers refreshed. Snapshot: `hardware/snapshots/fab-crowd-stitch-3.10.kicad_pcb`.
+- Body keep-away / front silk labels: still tidy in pcbnew if desired. J_USB pads past Edge.Cuts intentional for mid-mount.
+- Optional: nudge hand `J_BAT` / `J_DC` / `C31` to clear 1 mm body keep-away (still colliding).
 - Optional: leave BAT/MCP73871 DNP note on scanner fab variant / assembly drawing.
-- ~~Commit/push uncommitted 0.3–0.4 docs, libs, generators.~~ Done on gitpush 2026-11-22.
+- Tune `RVREF1`/`RVREF2` (10k placeholder) for motor current before fab.
+- ~~Sch ERC connectivity (Y-flip labels, LED series, CC Rd, U5 ties, MS/VREF, NC).~~ Done sch rev 0.7 — ERC errors 0; PCB nets 311 pads; RCC1/2 + RVREF1/2 placed.
+- ~~Mounting hole refs M1–M4; jumpers on schematic.~~ Done sch 0.8 / PCB 2.17 — `H*`→`M*`; `JP_V+`/`JP_VM1`/`JP_VM2` + `M1`–`M4` on sch.
+- ~~Rebuild floorplan: power UL, MCU LL ant S, steppers R; pin silk 1.25 mm; silk+body clear.~~ Done PCB rev 2.5 (`check_silk` silk+body+pad×pad clean; J_DC on-board; U1 tip flush LL; STEP clear of H2/H4; GND poured).
+- ~~1 mm outline keep-away + 6×6 mm square screw silk keepouts; clear U1 vs STEP terminals.~~ Done PCB rev 2.6 (`check_silk` silk+body clean; hole squares; AN/DG silk east; JP_VM vertical; GND poured; gerbers refreshed).
+- ~~J_BAT @180 near STEP1; clear U6/L1 vs DG; keep J_USB @90°.~~ Done PCB rev 2.7 (`check_silk` silk+body clean; U6 CrtYd↔DG Fab ~3.3 mm; GND poured; gerbers refreshed).
+- ~~J_BAT east of barrel / west of STEP1 for plug access.~~ Done PCB rev 2.8 (`J_BAT` @ (28,18) ang 0; `check_silk` silk+body clean; GND poured; gerbers refreshed).
+- ~~Wire power discretes (PPTC, P-FET, SMBJ24A, AP63205, MCP73871, AMS1117, sense Rs) + buck/LDO/charger caps.~~ Done sch 0.5 / PCB 2.1.
+- ~~Place remaining sch parts + LEDs; sync J_USB @−90°.~~ Done PCB rev 2.9 (70 footprints; LED1–3 under USB; OUT drivers placed; `check_silk` silk+body clean; GND poured; gerbers refreshed).
+- ~~Backtrack pcbnew layout into generator.~~ Superseded: generator stopped (rev 2.13); pcbnew file is placement owner.
+- ~~Stop generator; restore hand PCB.~~ Done rev 2.13: snapshot restored to `adeptbt.kicad_pcb`; `gen_adeptbt_pcb.py` refuses write; gerbers re-exported from hand board.
+- ~~Place missing sch parts (LED1–3, R4–6, OUT drivers).~~ Done rev 2.14: appended onto hand board only (70 footprints); new-part silk/body clear; hand `J_BAT`×`J_DC`/`C31` unchanged.

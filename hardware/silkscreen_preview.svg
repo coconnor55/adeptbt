@@ -2,18 +2,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="856" height="540" viewBox="0 0 85.6 53.98">
   <rect width="85.6" height="53.98" fill="#1a1a1a" stroke="#c0c0c0" stroke-width="0.2"/>
   <text x="42.8" y="26" text-anchor="middle" fill="#f0e6d0" font-family="Helvetica" font-size="3">AdeptBT</text>
-  <text x="42.8" y="29" text-anchor="middle" fill="#aaa" font-family="Helvetica" font-size="1.2">rev 0.2 · coconnor55</text>
-  <rect x="8" y="0.4" width="28" height="9" fill="none" stroke="#f0e6d0" stroke-width="0.15"/>
-  <text x="22" y="4" text-anchor="middle" fill="#f0e6d0" font-size="1.3">STEPPER1</text>
-  <text x="22" y="7" text-anchor="middle" fill="#ccc" font-size="0.85">A1 A2 B1 B2 VM GND</text>
-  <rect x="46" y="0.4" width="28" height="9" fill="none" stroke="#f0e6d0" stroke-width="0.15"/>
-  <text x="60" y="4" text-anchor="middle" fill="#f0e6d0" font-size="1.3">STEPPER2</text>
-  <text x="60" y="7" text-anchor="middle" fill="#ccc" font-size="0.85">A1 A2 B1 B2 VM GND</text>
-  <rect x="28" y="44.5" width="30" height="9" fill="none" stroke="#f0e6d0" stroke-width="0.15"/>
-  <text x="43" y="49.5" text-anchor="middle" fill="#f0e6d0" font-size="1.0">VIN GND V+ OUT1 V+ OUT2</text>
-  <rect x="0.2" y="20" width="5" height="14" fill="none" stroke="#7ec8e3" stroke-width="0.15"/>
-  <text x="74" y="16" fill="#c8e67e" font-size="1.1">ANALOG</text>
-  <text x="74" y="42" fill="#c8e67e" font-size="1.1">DIGITAL</text>
+  <text x="42.8" y="29" text-anchor="middle" fill="#aaa" font-family="Helvetica" font-size="1.2">rev 0.5 · coconnor55</text>
+  <text x="12.475" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">A1</text>
+  <text x="48.475" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">A1</text>
+  <text x="16.285" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">A2</text>
+  <text x="52.285" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">A2</text>
+  <text x="20.095" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">B1</text>
+  <text x="56.095" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">B1</text>
+  <text x="23.905" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">B2</text>
+  <text x="59.905" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">B2</text>
+  <text x="27.715" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">VM</text>
+  <text x="63.715" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">VM</text>
+  <text x="31.525" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">GND</text>
+  <text x="67.525" y="7.2" text-anchor="middle" fill="#ccc" font-size="0.7">GND</text>
+  <text x="57.525" y="46.5" text-anchor="middle" fill="#ccc" font-size="0.7">VIN</text>
+  <text x="53.715" y="46.5" text-anchor="middle" fill="#ccc" font-size="0.7">GND</text>
+  <text x="49.905" y="46.5" text-anchor="middle" fill="#ccc" font-size="0.7">V+</text>
+  <text x="46.095" y="46.5" text-anchor="middle" fill="#ccc" font-size="0.7">OUT1</text>
+  <text x="42.285" y="46.5" text-anchor="middle" fill="#ccc" font-size="0.7">V+</text>
+  <text x="38.475" y="46.5" text-anchor="middle" fill="#ccc" font-size="0.7">OUT2</text>
+  <text x="77.5" y="18.3" text-anchor="end" fill="#c8e67e" font-size="0.65">AIN0</text>
+  <text x="77.5" y="20.84" text-anchor="end" fill="#c8e67e" font-size="0.65">AIN1</text>
+  <text x="77.5" y="23.38" text-anchor="end" fill="#c8e67e" font-size="0.65">AIN2</text>
+  <text x="77.5" y="25.92" text-anchor="end" fill="#c8e67e" font-size="0.65">AIN3</text>
+  <text x="77.5" y="28.46" text-anchor="end" fill="#c8e67e" font-size="0.65">3V3</text>
+  <text x="77.5" y="31.0" text-anchor="end" fill="#c8e67e" font-size="0.65">5V</text>
+  <text x="77.5" y="33.54" text-anchor="end" fill="#c8e67e" font-size="0.65">GND</text>
+  <text x="77.5" y="38.3" text-anchor="end" fill="#c8e67e" font-size="0.65">D0</text>
+  <text x="77.5" y="40.839999999999996" text-anchor="end" fill="#c8e67e" font-size="0.65">D1</text>
+  <text x="77.5" y="43.379999999999995" text-anchor="end" fill="#c8e67e" font-size="0.65">D2</text>
+  <text x="77.5" y="45.919999999999995" text-anchor="end" fill="#c8e67e" font-size="0.65">D3</text>
+  <text x="77.5" y="48.459999999999994" text-anchor="end" fill="#c8e67e" font-size="0.65">3V3</text>
+  <text x="77.5" y="51.0" text-anchor="end" fill="#c8e67e" font-size="0.65">GND</text>
   <circle cx="3.5" cy="3.5" r="1.1" fill="none" stroke="#888" stroke-width="0.15"/>
   <circle cx="82.1" cy="3.5" r="1.1" fill="none" stroke="#888" stroke-width="0.15"/>
   <circle cx="3.5" cy="50.48" r="1.1" fill="none" stroke="#888" stroke-width="0.15"/>

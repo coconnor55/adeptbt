@@ -1,4 +1,4 @@
-# AdeptBT — JLCPCB-first BOM (rev 0.4 target)
+# AdeptBT — JLCPCB-first BOM (rev 0.5 target)
 
 Prefer LCSC / JLCPCB assembly. Verify live stock before order.
 

@@ -1,6 +1,6 @@
 # AdeptBT — locked design
 
-Credit-card PCB (~85.6 × 53.98 mm), 4-layer preferred.
+Credit-card PCB (~85.6 × 53.98 mm), 4-layer — see [`STACKUP.md`](STACKUP.md) (In1/In2 solid GND).
 
 ## MCU
 - Raytac MDBT50Q-1MV2 (nRF52840, chip antenna)
@@ -8,7 +8,7 @@ Credit-card PCB (~85.6 × 53.98 mm), 4-layer preferred.
 ## Motion / outputs
 - 2× TMC2209 (always fitted): STEP/DIR/EN/UART each
 - 2× 2N2222 low-side outs + flyback diodes
-- V+ jumperable: 3.3 V / 5 V / VIN
+- V+ jumperable: 3.3 V / VIN
 
 ## Power
 - USB-C: program + can run/charge MCU path
