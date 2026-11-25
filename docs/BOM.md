@@ -1,5 +1,7 @@
 # AdeptBT — preliminary BOM
 
+**PCBA quote owner:** [`JLCPCB_BOM.md`](JLCPCB_BOM.md) + [`JLCPCB_ASSEMBLY_BOM.csv`](JLCPCB_ASSEMBLY_BOM.csv).
+
 Exact LCSC/DigiKey PNs locked at fab time; functional list:
 
 | Ref | Qty | Description |

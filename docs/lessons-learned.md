@@ -82,3 +82,23 @@ For Freerouting leftovers on this density, re-export DSN and run Freerouting aga
 ## 2026-11-24 — Freerouting leaves zero GND vias
 
 Freerouting with `ignore_net_classes=GND` routes signals on In1/In2 and adds **no** GND stitch vias. After SES import, place clearance-checked through vias on GND (and in-island vias for orphan F.Cu pours at C41/C2/USB). Blind F-only bridges often short; through vias must clear foreign copper on all four layers.
+
+## 2026-11-24 — check_silk edge refs and Y-down rotate
+
+`EDGE_BODY_OUTLINE` entries are stems (`J_DC`); match with digit-stripped refs (`J_DC1`). KiCad board_xy is Y-down: `fx+lx*c+ly*s`, `fy-lx*s+ly*c`. Ignore `B.SilkS` `gr_text` in front silk×solid checks.
+
+## 2026-11-24 — JLCPCB CPL is not KiCad pos CSV
+
+JLCPCB rejects KiCad `Ref,PosX,PosY,Rot,Side`. Convert to `Designator,Mid X,Mid Y,Layer,Rotation` with `Top`/`Bottom`, positive mm (negate KiCad’s negative Y). Owner: `docs/JLCPCB_CPL.csv`.
+
+## 2026-11-24 — JLCPCB BOM designators must match CPL exactly
+
+Do not use ranges (`R2-R6`, `M1-M4`) in the assembly BOM. Use comma lists (`R2,R3,R4,R5,R6`). Every BOM designator must appear in the CPL (and vice versa for SMT). Omit mounting holes from the assembly BOM.
+
+## 2026-11-24 — JLCPCB auto-match can pick the wrong package or part
+
+Do not trust Comment/value keyword matches. Reject 01005 for 0402 footprints, THT resistors for 1206 sense, and isolators for headers named DIGITAL. Lock LCSC in `JLCPCB_ASSEMBLY_BOM.csv` before re-upload.
+
+## 2026-11-25 — Q_PMOS / Q_NPN pin lib offsets must match the library
+
+For Q_PMOS (G=pin1, S=pin2, D=pin3), the KiCad library offsets are G=(-5.08,0), S=(2.54,-5.08), D=(2.54,5.08). Swapping S and D swaps VIN/VIN_F on Q1. Always verify lib offsets from the `lib_symbols` block in the schematic snapshot — do not guess from the schematic symbol orientation. When a wire crosses a pin that falls between its endpoints, KiCad connects that pin to the wire net; route around or use labels.

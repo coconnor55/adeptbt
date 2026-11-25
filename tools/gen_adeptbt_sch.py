@@ -1,1004 +1,807 @@
 #!/usr/bin/env python3
-"""Generate AdeptBT schematic (rev 0.12) — symbols + global labels from NETLIST."""
+"""gen_adeptbt_sch.py — Generate AdeptBT schematic rev 0.13 (traditional wired).
+
+Reads lib_symbols from the pre-redraw snapshot and connectivity from the
+exported JSON.  Places components in functional blocks with wires for local
+connections and global labels for inter-block / power nets.
+"""
 
 from __future__ import annotations
 
-import re
+import json
+import math
 import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 HW = ROOT / "hardware"
-JLC_SYM = HW / "libs" / "jlc" / "jlc.kicad_sym"
-KICAD_SYM = Path(
-    "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols"
-)
 OUT = HW / "adeptbt.kicad_sch"
+SNAP = HW / "snapshots" / "pre-sch-redraw-20261125.kicad_sch"
+CONN = HW / "exports" / "sch_connectivity.json"
+
 PROJECT = "adeptbt"
 SHEET_UUID = "46fc2e97-3959-4095-a2dc-23d7ed974c68"
+
+# ── helpers ─────────────────────────────────────────────────────
 
 
 def uid() -> str:
     return str(uuid.uuid4())
 
 
-def extract_symbol(lib_path: Path, name: str) -> str:
-    text = lib_path.read_text()
-    # top-level symbols are indented with one tab inside kicad_symbol_lib
-    pat = rf'\n\t\(symbol "{re.escape(name)}"'
-    m = re.search(pat, text)
-    if not m:
-        # Connector_Generic style may use two tabs in some versions
-        pat2 = rf'\(symbol "{re.escape(name)}"'
-        m = re.search(pat2, text)
-        if not m:
-            raise KeyError(f"{name} not in {lib_path}")
-        start = m.start()
-    else:
-        start = m.start() + 1  # skip leading newline
-    i = start
+def extract_lib_symbols(sch_text: str) -> str:
+    """Return the ``(lib_symbols ...)`` block verbatim."""
+    tag = "\t(lib_symbols"
+    start = sch_text.find(tag)
+    if start < 0:
+        raise ValueError("lib_symbols not found")
     depth = 0
-    while i < len(text):
-        c = text[i]
-        if c == "(":
+    i = start
+    while i < len(sch_text):
+        if sch_text[i] == "(":
             depth += 1
-        elif c == ")":
+        elif sch_text[i] == ")":
             depth -= 1
             if depth == 0:
-                block = text[start : i + 1]
-                # Derived parts (extends) have no pins — pull the parent body.
-                ext = re.search(r'\(extends "([^"]+)"\)', block)
-                if ext:
-                    parent_name = ext.group(1)
-                    parent = extract_symbol(lib_path, parent_name)
-                    parent = rename_symbol_tree(parent.lstrip(), parent_name, name)
-                    return parent
-                return block
+                return sch_text[start : i + 1]
         i += 1
-    raise RuntimeError(f"unclosed symbol {name}")
+    raise ValueError("unclosed lib_symbols")
 
 
-def rename_symbol_tree(block: str, old_name: str, new_name: str) -> str:
-    """Rename parent symbol and every nested unit prefix old_name_U_S → new_name_U_S."""
-    block = re.sub(
-        rf'^\(symbol "{re.escape(old_name)}"',
-        f'(symbol "{new_name}"',
-        block,
-        count=1,
+# ── pin-position math ───────────────────────────────────────────
+
+
+def psp(ix: float, iy: float, angle: float, lx: float, ly: float):
+    """Library pin (lx, ly) → schematic coords for symbol at (ix, iy, angle°).
+
+    Rotate in symbol space (Y-up) then project onto schematic (Y-down).
+    """
+    theta = math.radians(angle)
+    ct, st = math.cos(theta), math.sin(theta)
+    xp = lx * ct - ly * st
+    yp = -(lx * st + ly * ct)
+    return (round(ix + xp, 2), round(iy + yp, 2))
+
+
+# ── s-expression emitters ──────────────────────────────────────
+
+
+def _prop(name, value, x, y, hide=False):
+    h = "\n\t\t\t(hide yes)" if hide else ""
+    return (
+        f'\t\t(property "{name}" "{value}"\n'
+        f"\t\t\t(at {x} {y} 0){h}\n"
+        f"\t\t\t(effects\n"
+        f"\t\t\t\t(font\n"
+        f"\t\t\t\t\t(size 1.27 1.27)\n"
+        f"\t\t\t\t)\n"
+        f"\t\t\t)\n"
+        f"\t\t)"
     )
-    block = re.sub(
-        rf'\(symbol "{re.escape(old_name)}_(\d+)_(\d+)"',
-        rf'(symbol "{new_name}_\1_\2"',
-        block,
-    )
-    return block
 
 
-def embed_as(lib_id: str, block: str) -> str:
-    """Rename outer (symbol "Name") to Lib:Name; keep unit prefixes on the entry name."""
-    block = block.lstrip()
-    entry = lib_id.split(":", 1)[-1]
-    m = re.match(r'^\(symbol "([^"]+)"', block)
-    if m and m.group(1) != entry and ":" not in m.group(1):
-        block = rename_symbol_tree(block, m.group(1), entry)
-    return re.sub(
-        r'^\(symbol "[^"]+"',
-        f'(symbol "{lib_id}"',
-        block,
-        count=1,
+def _pin_uuids(nums):
+    return "\n".join(
+        f'\t\t(pin "{n}"\n\t\t\t(uuid "{uid()}")\n\t\t)' for n in nums
     )
 
 
-def prop(name: str, value: str, x: float, y: float, hide: bool = False) -> str:
-    hide_s = "\n\t\t\t(hide yes)" if hide else ""
-    return f"""\t\t(property "{name}" "{value}"
-\t\t\t(at {x} {y} 0){hide_s}
-\t\t\t(effects
-\t\t\t\t(font
-\t\t\t\t\t(size 1.27 1.27)
-\t\t\t\t)
-\t\t\t)
-\t\t)"""
+def _inst(ref):
+    return (
+        f"\t\t(instances\n"
+        f'\t\t\t(project "{PROJECT}"\n'
+        f'\t\t\t\t(path "/{SHEET_UUID}"\n'
+        f'\t\t\t\t\t(reference "{ref}")\n'
+        f"\t\t\t\t\t(unit 1)\n"
+        f"\t\t\t\t)\n"
+        f"\t\t\t)\n"
+        f"\t\t)"
+    )
 
 
-def pin_uuids(numbers: list[str]) -> str:
-    lines = []
-    for n in numbers:
-        lines.append(f'\t\t(pin "{n}"\n\t\t\t(uuid "{uid()}")\n\t\t)')
-    return "\n".join(lines)
+def sym(lib_id, ref, value, fp, x, y, pins, angle=0):
+    return (
+        f"\t(symbol\n"
+        f'\t\t(lib_id "{lib_id}")\n'
+        f"\t\t(at {x} {y} {angle:g})\n"
+        f"\t\t(unit 1)\n"
+        f"\t\t(exclude_from_sim no)\n"
+        f"\t\t(in_bom yes)\n"
+        f"\t\t(on_board yes)\n"
+        f"\t\t(dnp no)\n"
+        f'\t\t(uuid "{uid()}")\n'
+        f'{_prop("Reference", ref, x, y - 5.08)}\n'
+        f'{_prop("Value", value, x, y + 5.08)}\n'
+        f'{_prop("Footprint", fp, x, y, True)}\n'
+        f'{_prop("Datasheet", "~", x, y, True)}\n'
+        f'{_prop("Description", "", x, y, True)}\n'
+        f"{_pin_uuids(pins)}\n"
+        f"{_inst(ref)}\n"
+        f"\t)"
+    )
 
 
-def instance(ref: str) -> str:
-    return f"""\t\t(instances
-\t\t\t(project "{PROJECT}"
-\t\t\t\t(path "/{SHEET_UUID}"
-\t\t\t\t\t(reference "{ref}")
-\t\t\t\t\t(unit 1)
-\t\t\t\t)
-\t\t\t)
-\t\t)"""
+def gl(name, x, y, angle=0, shape="input"):
+    return (
+        f'\t(global_label "{name}"\n'
+        f"\t\t(shape {shape})\n"
+        f"\t\t(at {x:g} {y:g} {angle:g})\n"
+        f"\t\t(fields_autoplaced yes)\n"
+        f"\t\t(effects\n"
+        f"\t\t\t(font\n"
+        f"\t\t\t\t(size 1.27 1.27)\n"
+        f"\t\t\t)\n"
+        f"\t\t\t(justify left)\n"
+        f"\t\t)\n"
+        f'\t\t(uuid "{uid()}")\n'
+        f'\t\t(property "Intersheetrefs" "${{INTERSHEET_REFS}}"\n'
+        f"\t\t\t(at {x:g} {y:g} 0)\n"
+        f"\t\t\t(effects\n"
+        f"\t\t\t\t(font\n"
+        f"\t\t\t\t\t(size 1.27 1.27)\n"
+        f"\t\t\t\t)\n"
+        f"\t\t\t\t(hide yes)\n"
+        f"\t\t\t)\n"
+        f"\t\t)\n"
+        f"\t)"
+    )
 
 
-def place_symbol(
-    lib_id: str,
-    ref: str,
-    value: str,
-    footprint: str,
-    x: float,
-    y: float,
-    pin_nums: list[str],
-    angle: float = 0,
-) -> str:
-    return f"""\t(symbol
-\t\t(lib_id "{lib_id}")
-\t\t(at {x} {y} {angle:g})
-\t\t(unit 1)
-\t\t(exclude_from_sim no)
-\t\t(in_bom yes)
-\t\t(on_board yes)
-\t\t(dnp no)
-\t\t(uuid "{uid()}")
-{prop("Reference", ref, x, y - 5.08)}
-{prop("Value", value, x, y + 5.08)}
-{prop("Footprint", footprint, x, y, True)}
-{prop("Datasheet", "~", x, y, True)}
-{prop("Description", "", x, y, True)}
-{pin_uuids(pin_nums)}
-{instance(ref)}
-\t)"""
+def nc(x, y):
+    return (
+        f"\t(no_connect\n"
+        f"\t\t(at {x:g} {y:g})\n"
+        f'\t\t(uuid "{uid()}")\n'
+        f"\t)"
+    )
 
 
-def pin_xy(ix: float, iy: float, lx: float, ly: float) -> tuple[float, float]:
-    """Library pin local (lx, ly) → sheet mm. Sheet Y is flipped vs symbol editor."""
-    return ix + lx, iy - ly
+def wr(x1, y1, x2, y2):
+    return (
+        f"\t(wire\n"
+        f"\t\t(pts\n"
+        f"\t\t\t(xy {x1:g} {y1:g})\n"
+        f"\t\t\t(xy {x2:g} {y2:g})\n"
+        f"\t\t)\n"
+        f"\t\t(stroke\n"
+        f"\t\t\t(width 0)\n"
+        f"\t\t\t(type default)\n"
+        f"\t\t)\n"
+        f'\t\t(uuid "{uid()}")\n'
+        f"\t)"
+    )
 
 
-def global_label(name: str, x: float, y: float, angle: float = 0, shape: str = "input") -> str:
-    return f"""\t(global_label "{name}"
-\t\t(shape {shape})
-\t\t(at {x:g} {y:g} {angle:g})
-\t\t(fields_autoplaced yes)
-\t\t(effects
-\t\t\t(font
-\t\t\t\t(size 1.27 1.27)
-\t\t\t)
-\t\t\t(justify left)
-\t\t)
-\t\t(uuid "{uid()}")
-\t\t(property "Intersheetrefs" "${{INTERSHEET_REFS}}"
-\t\t\t(at {x:g} {y:g} 0)
-\t\t\t(effects
-\t\t\t\t(font
-\t\t\t\t\t(size 1.27 1.27)
-\t\t\t\t)
-\t\t\t\t(hide yes)
-\t\t\t)
-\t\t)
-\t)"""
+def jn(x, y):
+    return (
+        f"\t(junction\n"
+        f"\t\t(at {x:g} {y:g})\n"
+        f"\t\t(diameter 0)\n"
+        f"\t\t(color 0 0 0 0)\n"
+        f'\t\t(uuid "{uid()}")\n'
+        f"\t)"
+    )
 
 
-def no_connect(x: float, y: float) -> str:
-    return f"""\t(no_connect
-\t\t(at {x:g} {y:g})
-\t\t(uuid "{uid()}")
-\t)"""
+def txt(s, x, y, size=2.5):
+    s = s.replace("\\", "\\\\").replace('"', '\\"')
+    return (
+        f'\t(text "{s}"\n'
+        f"\t\t(exclude_from_sim no)\n"
+        f"\t\t(at {x} {y} 0)\n"
+        f"\t\t(effects\n"
+        f"\t\t\t(font\n"
+        f"\t\t\t\t(size {size} {size})\n"
+        f"\t\t\t\t(bold yes)\n"
+        f"\t\t\t)\n"
+        f"\t\t\t(justify left top)\n"
+        f"\t\t)\n"
+        f'\t\t(uuid "{uid()}")\n'
+        f"\t)"
+    )
 
 
-def label_pin(
-    net: str,
-    ix: float,
-    iy: float,
-    lx: float,
-    ly: float,
-    angle: float = 0,
-    shape: str = "passive",
-) -> str:
-    x, y = pin_xy(ix, iy, lx, ly)
-    return global_label(net, x, y, angle, shape)
+# ── pin library offsets (Y-up in symbol editor) ────────────────
+
+V1 = (0, 3.81)    # 2-pin vertical devices: pin 1 (top)
+V2 = (0, -3.81)   # pin 2 (bottom)
+H1 = (-3.81, 0)   # horizontal D/LED: pin 1 K (left)
+H2 = (3.81, 0)    # pin 2 A (right)
+
+CONN_Y0 = {1: 0, 2: 0.0, 3: 2.54, 5: 5.08, 6: 5.08, 7: 7.62}
 
 
-def text_block(txt: str, x: float, y: float, size: float = 1.5) -> str:
-    esc = txt.replace("\\", "\\\\").replace('"', '\\"')
-    return f"""\t(text "{esc}"
-\t\t(exclude_from_sim no)
-\t\t(at {x} {y} 0)
-\t\t(effects
-\t\t\t(font
-\t\t\t\t(size {size} {size})
-\t\t\t)
-\t\t\t(justify left top)
-\t\t)
-\t\t(uuid "{uid()}")
-\t)"""
+def cpn(count, pin_1):
+    """Library coords for Connector_Generic:Conn_01xNN pin (1-based)."""
+    y0 = CONN_Y0[count]
+    return (-5.08, y0 - (pin_1 - 1) * 2.54)
 
 
-def conn_pins(n: int) -> list[str]:
-    return [str(i) for i in range(1, n + 1)]
+def conn_labels(x, y, count, nets, P_list, L_list):
+    """Emit labels for a standard generic connector's left-side pins."""
+    for i, net in enumerate(nets, 1):
+        px, py = psp(x, y, 0, *cpn(count, i))
+        L_list.append(gl(net, px, py, 0, "input"))
 
 
-# Connector_Generic |pin1| Y offsets (lib +Y); sheet labels use negated Y
-CONN_Y0 = {2: 0.0, 3: 2.54, 5: 5.08, 6: 5.08, 7: 7.62}
-
-
-def label_conn_row(nets: list[str], x: float, y: float) -> list[str]:
-    """Labels on Connector_Generic left pin tips (pitch 2.54)."""
-    out = []
-    y0 = CONN_Y0[len(nets)]
-    px = x - 5.08
-    for i, net in enumerate(nets):
-        # KiCad sheet Y: negate library pin Y for correct binding
-        out.append(global_label(net, px, y - y0 + i * 2.54, 0, "input"))
-    return out
-
-
-def _q_numeric_pins(block: str, kind: str) -> str:
-    """Map Device Q pin numbers G/D/S or B/C/E → 1/2/3 for SOT-23 footprints."""
-    if kind == "PMOS":
-        # G=1, S=2, D=3 (AO3407)
-        block = block.replace('(number "G"', '(number "1"', 1)
-        block = block.replace('(number "S"', '(number "2"', 1)
-        block = block.replace('(number "D"', '(number "3"', 1)
-    else:
-        # B=1, E=2, C=3 (MMBT2222A)
-        block = block.replace('(number "B"', '(number "1"', 1)
-        block = block.replace('(number "E"', '(number "2"', 1)
-        block = block.replace('(number "C"', '(number "3"', 1)
-    return block
+# ── main ────────────────────────────────────────────────────────
 
 
 def main() -> None:
-    # --- library symbols ---
-    conn_lib = KICAD_SYM / "Connector_Generic.kicad_sym"
-    connector_lib = KICAD_SYM / "Connector.kicad_sym"
-    device_lib = KICAD_SYM / "Device.kicad_sym"
-    power_lib = KICAD_SYM / "power.kicad_sym"
-    mech_lib = KICAD_SYM / "Mechanical.kicad_sym"
-    reg_sw = KICAD_SYM / "Regulator_Switching.kicad_sym"
-    reg_lin = KICAD_SYM / "Regulator_Linear.kicad_sym"
-    bat_mgmt = KICAD_SYM / "Battery_Management.kicad_sym"
+    lib_syms = extract_lib_symbols(SNAP.read_text())
 
-    needed = [
-        ("jlc:MDBT50Q-1MV2", extract_symbol(JLC_SYM, "MDBT50Q-1MV2")),
-        ("jlc:TMC2209-LA", extract_symbol(JLC_SYM, "TMC2209-LA")),
-        ("Connector_Generic:Conn_01x06", extract_symbol(conn_lib, "Conn_01x06")),
-        ("Connector_Generic:Conn_01x07", extract_symbol(conn_lib, "Conn_01x07")),
-        ("Connector_Generic:Conn_01x05", extract_symbol(conn_lib, "Conn_01x05")),
-        ("Connector_Generic:Conn_01x03", extract_symbol(conn_lib, "Conn_01x03")),
-        ("Connector_Generic:Conn_01x02", extract_symbol(conn_lib, "Conn_01x02")),
-        (
-            "Connector_Generic_MountingPin:Conn_01x02_MountingPin",
-            extract_symbol(
-                KICAD_SYM / "Connector_Generic_MountingPin.kicad_sym",
-                "Conn_01x02_MountingPin",
-            ),
-        ),
-        (
-            "Connector:Barrel_Jack_MountingPin",
-            extract_symbol(connector_lib, "Barrel_Jack_MountingPin"),
-        ),
-        ("Mechanical:MountingHole", extract_symbol(mech_lib, "MountingHole")),
-        (
-            "AdeptBT:USB_C_GCT_16P",
-            extract_symbol(HW / "libs" / "AdeptBT.kicad_sym", "USB_C_GCT_16P"),
-        ),
-        ("Device:Q_NPN", _q_numeric_pins(extract_symbol(device_lib, "Q_NPN"), "NPN")),
-        ("Device:Q_PMOS", _q_numeric_pins(extract_symbol(device_lib, "Q_PMOS"), "PMOS")),
-        ("Device:D", extract_symbol(device_lib, "D")),
-        ("Device:R", extract_symbol(device_lib, "R")),
-        ("Device:C", extract_symbol(device_lib, "C")),
-        ("Device:C_Polarized", extract_symbol(device_lib, "C_Polarized")),
-        ("Device:L", extract_symbol(device_lib, "L")),
-        ("Device:Fuse", extract_symbol(device_lib, "Fuse")),
-        ("Device:LED", extract_symbol(device_lib, "LED")),
-        ("Regulator_Switching:AP63205WU", extract_symbol(reg_sw, "AP63205WU")),
-        ("Regulator_Linear:AMS1117-3.3", extract_symbol(reg_lin, "AMS1117-3.3")),
-        ("Battery_Management:MCP73871", extract_symbol(bat_mgmt, "MCP73871")),
-        ("power:GND", extract_symbol(power_lib, "GND")),
-        ("power:+3V3", extract_symbol(power_lib, "+3V3")),
-        ("power:+5V", extract_symbol(power_lib, "+5V")),
-        ("power:PWR_FLAG", extract_symbol(power_lib, "PWR_FLAG")),
-    ]
+    P: list[str] = []  # symbols
+    L: list[str] = []  # labels + no-connects
+    W: list[str] = []  # wires + junctions
+    T: list[str] = []  # section-title text blocks
 
-    lib_syms = "\n".join(embed_as(lid, blk) for lid, blk in needed)
-
-    parts: list[str] = []
-    labels: list[str] = []
-
-    # All coords on 1.27 mm schematic grid
-    cy = 25.4
-    # KiCad annotation requires every ref to end in a digit (J_USB → J_USB1).
-    connectors = [
-        ("J_STEP1", "STEPPER1", "AdeptBT:TE_2383945-6_1x06_P3.81mm_SMD", 25.4,
-         ["A1_1", "A2_1", "B1_1", "B2_1", "VM1", "GND"], 6),
-        ("J_STEP2", "STEPPER2", "AdeptBT:TE_2383945-6_1x06_P3.81mm_SMD", 50.8,
-         ["A1_2", "A2_2", "B1_2", "B2_2", "VM2", "GND"], 6),
-        ("J_PWR1", "PWR_OUT", "AdeptBT:TE_2383945-6_1x06_P3.81mm_SMD", 76.2,
-         ["VIN_RAW", "GND", "V+", "OUT1", "V+", "OUT2"], 6),
-        # TE footprint file name unchanged (same 3.81 mm geometry); value TE 2383941-6
-        ("J_AN1", "ANALOG", "AdeptBT:PinHeader_1x07_P2.54mm_Vertical", 101.6,
-         ["AIN0", "AIN1", "AIN2", "AIN3", "+3V3", "+5V", "GND"], 7),
-        ("J_DG1", "DIGITAL", "AdeptBT:PinHeader_1x06_P2.54mm_Vertical", 127.0,
-         ["D0", "D1", "D2", "D3", "+3V3", "GND"], 6),
-        ("J_SWD1", "SWD", "AdeptBT:PinHeader_1x05_P2.54mm_Vertical", 152.4,
-         ["SWDIO", "SWDCLK", "GND", "+3V3", "nRESET"], 5),
-        ("J_BAT1", "BAT", "AdeptBT:JST_PH_S2B-PH-SM4-TB_1x02-1MP_P2.00mm_Horizontal", 177.8,
-         ["VBAT", "GND"], 2),
-        ("J_USB1", "USB-C", "AdeptBT:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal", 203.2,
-         ["USB_5V", "USB_D+", "USB_D-", "CC1", "CC2", "GND"], 6),
-    ]
-    # GCT 16P pad set; stacked same-net pins share one label tip.
-    usb_pins = [
-        "A4", "A9", "B4", "B9",
-        "A6", "B6",
-        "A7", "B7",
-        "A5", "B5",
-        "A1", "A12", "B1", "B12", "SH",
-        "A8", "B8",
-    ]
-    for ref, val, fp, x, nets, n in connectors:
-        if ref == "J_PWR1":
-            val = "TE_2383941-6"
-        if ref.startswith("J_STEP"):
-            val = "TE_2383941-6"
-        if ref == "J_USB1":
-            parts.append(
-                place_symbol("AdeptBT:USB_C_GCT_16P", ref, val, fp, x, cy, usb_pins)
-            )
-            # Left stack tips (lib Y): VBUS 5.08, D+ 2.54, D- 0, CC1 -2.54, CC2 -5.08, GND -7.62
-            for net, ly in zip(
-                nets, [5.08, 2.54, 0.0, -2.54, -5.08, -7.62], strict=True
-            ):
-                labels.append(label_pin(net, x, cy, -5.08, ly, 0, "input"))
-            # SBU unused
-            labels.append(no_connect(*pin_xy(x, cy, 5.08, 2.54)))
-            labels.append(no_connect(*pin_xy(x, cy, 5.08, 0.0)))
-            continue
-        if ref == "J_BAT1":
-            lib = "Connector_Generic_MountingPin:Conn_01x02_MountingPin"
-            parts.append(place_symbol(lib, ref, val, fp, x, cy, ["1", "2", "MP"]))
-            labels += label_conn_row(nets, x, cy)
-            labels.append(label_pin("GND", x, cy, 0.0, -7.62, 270, "input"))
-            continue
-        lib = f"Connector_Generic:Conn_01x{n:02d}"
-        parts.append(place_symbol(lib, ref, val, fp, x, cy, conn_pins(n)))
-        labels += label_conn_row(nets, x, cy)
-
-    # J_DC1 5.5×2.1 barrel — pin1 tip=VIN_RAW, pin2 sleeve=GND, MP→GND
-    dc_x, dc_y = 228.6, 25.4
-    parts.append(
-        place_symbol(
-            "Connector:Barrel_Jack_MountingPin",
-            "J_DC1",
-            "5.5x2.1",
-            "AdeptBT:BarrelJack_CUI_PJ-063AH_Horizontal",
-            dc_x,
-            dc_y,
-            ["1", "2", "MP"],
-        )
-    )
-    labels.append(label_pin("VIN_RAW", dc_x, dc_y, 7.62, 2.54, 180, "output"))
-    labels.append(label_pin("GND", dc_x, dc_y, 7.62, -2.54, 180, "output"))
-    labels.append(label_pin("GND", dc_x, dc_y, 0.0, -7.62, 270, "input"))
-
-    # Jumpers (docs/NETLIST.md): JP_V+1 3V3/V+/VIN; JP_VM* VIN↔VMn
-    jumpers = [
-        ("JP_V+1", "V+", "AdeptBT:PinHeader_1x03_P2.54mm_Vertical", 254.0,
-         ["+3V3", "V+", "VIN"], 3),
-        ("JP_VM1", "VM1", "AdeptBT:PinHeader_1x02_P2.54mm_Vertical", 279.4,
-         ["VIN", "VM1"], 2),
-        ("JP_VM2", "VM2", "AdeptBT:PinHeader_1x02_P2.54mm_Vertical", 292.1,
-         ["VIN", "VM2"], 2),
-    ]
-    for ref, val, fp, x, nets, n in jumpers:
-        lib = f"Connector_Generic:Conn_01x{n:02d}"
-        parts.append(place_symbol(lib, ref, val, fp, x, cy, conn_pins(n)))
-        labels += label_conn_row(nets, x, cy)
-
-    # Corner mounting holes (M2 screw) — mechanical only
-    hole_fp = "AdeptBT:MountingHole_2.2mm_M2"
-    for i, x in enumerate([25.4, 50.8, 76.2, 101.6], start=1):
-        parts.append(
-            place_symbol(
-                "Mechanical:MountingHole",
-                f"M{i}",
-                "M2",
-                hole_fp,
-                x,
-                50.8,
-                [],
-            )
-        )
-
-    # ========== MCU ==========
-    mcu_x, mcu_y = 101.6, 139.7
-    mdbt_pins = [str(i) for i in range(1, 62)]
-    parts.append(
-        place_symbol(
-            "jlc:MDBT50Q-1MV2",
-            "U1",
-            "MDBT50Q-1MV2",
-            "jlc:COMM-SMD_MDBT50Q-1MV2-1",
-            mcu_x,
-            mcu_y,
-            mdbt_pins,
-        )
-    )
-
-    # Left-side MCU pins (angle 0 → label to the left of pin tip at x-31.75)
-    # Pin Y offsets from symbol (absolute = mcu_y + pin_y)
-    left_map = {
-        # pin: net  (only wired pins; others float / NC for now)
-        1: "GND",
-        2: "GND",
-        9: "AIN1",  # P0.03
-        11: "AIN0",  # P0.02
-        15: "GND",
-        20: "AIN2",  # P0.04
-        21: "AIN3",  # P0.05
-        22: "OUT1_DRV",  # P0.06 → R2 → Q2 base
-        23: "LED_USER",  # P0.07
-        24: "OUT2_DRV",  # P0.08 → R3 → Q3 base
-        28: "+3V3",  # VDD
-        30: "+3V3",  # VDDH (module typically tied)
-    }
-    # From symbol: pin N at y = 38.1 - (N-1)*2.54 for left bank 1..31
-    for n, net in left_map.items():
-        lib_y = 38.1 - (n - 1) * 2.54
-        px = mcu_x - 31.75
-        labels.append(global_label(net, px, mcu_y - lib_y, 0, "input"))
-    # NC unused left-bank GPIO / crystal / DCCH
-    for n in list(range(3, 9)) + [10, 12, 13, 14, 16, 17, 18, 19, 25, 26, 27, 29, 31]:
-        if n in left_map:
-            continue
-        lib_y = 38.1 - (n - 1) * 2.54
-        labels.append(no_connect(mcu_x - 31.75, mcu_y - lib_y))
-
-    gpio_lock = {
-        32: "USB_5V",
-        33: "GND",
-        34: "USB_D-",
-        35: "USB_D+",
-        36: "TMC_UART",  # P0.14
-        37: "STEP1_EN",  # P0.13
-        38: "STEP2_STEP",  # P0.16
-        39: "STEP2_DIR",  # P0.15
-        40: "nRESET",  # P0.18
-        41: "STEP2_EN",  # P0.17
-        43: "STEP1_STEP",  # P0.21
-        44: "STEP1_DIR",  # P0.20
-        45: "D0",  # P0.23
-        46: "D1",  # P0.22
-        47: "D2",  # P1.00
-        48: "D3",  # P0.24
-        49: "CHG_STAT",  # P0.25
-        51: "SWDIO",
-        53: "SWDCLK",
-        55: "GND",
-    }
-    # Right bank pin Y: pin32 at -38.1, then +2.54 each
-    for n, net in gpio_lock.items():
-        lib_y = -38.1 + (n - 32) * 2.54
-        px = mcu_x + 31.75
-        labels.append(global_label(net, px, mcu_y - lib_y, 180, "output"))
-    for n in list(range(32, 62)):
-        if n in gpio_lock:
-            continue
-        lib_y = -38.1 + (n - 32) * 2.54
-        labels.append(no_connect(mcu_x + 31.75, mcu_y - lib_y))
-
-    # ========== TMC2209 U2 / U3 ==========
-    tmc_pins = [str(i) for i in range(1, 30)]
-
-    def place_tmc(ref: str, x: float, y: float, suffix: str) -> None:
-        parts.append(
-            place_symbol(
-                "jlc:TMC2209-LA",
-                ref,
-                "TMC2209-LA",
-                "jlc:QFN-28_L5.0-W5.0-P0.50-BL-EP",
-                x,
-                y,
-                tmc_pins,
-            )
-        )
-        # Left pins 1..15: y = 17.78 - (n-1)*2.54
-        # Dual UART: U2 addr 0 (MS1=MS2=GND), U3 addr 1 (MS1=+3V3, MS2=GND)
-        ms1 = "GND" if suffix == "1" else "+3V3"
-        left = {
-            1: f"B2_{suffix}",  # OB2
-            2: f"STEP{suffix}_EN",
-            3: "GND",
-            4: f"CPO{suffix}",
-            5: f"CPI{suffix}",
-            6: f"VCP{suffix}",
-            7: "GND",  # SPREAD low = stealthChop default
-            8: f"5VOUT{suffix}",  # local regulator out — not board +5V
-            9: ms1,
-            10: "GND",  # MS2
-            13: "GND",  # CLK → GND for internal osc
-            14: "TMC_UART",
-            15: "+3V3",
-        }
-        for n, net in left.items():
-            lib_y = 17.78 - (n - 1) * 2.54
-            labels.append(global_label(net, x - 15.24, y - lib_y, 0, "input"))
-        for n in (11, 12):  # DIAG, INDEX unused
-            lib_y = 17.78 - (n - 1) * 2.54
-            labels.append(no_connect(x - 15.24, y - lib_y))
-        right_y = {
-            16: -16.51,
-            17: -13.97,
-            18: -11.43,
-            19: -8.89,
-            20: -6.35,
-            21: -3.81,
-            22: -1.27,
-            23: 1.27,
-            24: 3.81,
-            25: 6.35,
-            26: 8.89,
-            27: 11.43,
-            28: 13.97,
-            29: 16.51,
-        }
-        right = {
-            16: f"STEP{suffix}_STEP",
-            17: f"VREF_{suffix}",
-            18: "GND",
-            19: f"STEP{suffix}_DIR",
-            20: "GND",  # STDBY → GND = active
-            21: f"A2_{suffix}",  # OA2
-            22: f"VM{suffix}",
-            23: f"BRA_{suffix}",
-            24: f"A1_{suffix}",  # OA1
-            26: f"B1_{suffix}",  # OB1
-            27: f"BRB_{suffix}",
-            28: f"VM{suffix}",
-            29: "GND",  # EP
-        }
-        for n, net in right.items():
-            labels.append(
-                global_label(net, x + 15.24, y - right_y[n], 180, "output")
-            )
-        labels.append(no_connect(x + 15.24, y - right_y[25]))  # NC pin
-
-    place_tmc("U2", 203.2, 114.3, "1")
-    place_tmc("U3", 203.2, 177.8, "2")
-
-    def place_cap(
-        ref: str,
-        value: str,
-        footprint: str,
-        net_a: str,
-        net_b: str,
-        x: float,
-        y: float,
-        polarized: bool = False,
-    ) -> None:
-        """Two-pin cap; pin1 = net_a (+ for polarized), pin2 = net_b."""
-        lib = "Device:C_Polarized" if polarized else "Device:C"
-        parts.append(
-            place_symbol(lib, ref, value, footprint, x, y, ["1", "2"])
-        )
-        labels.append(global_label(net_a, x, y - 3.81, 90, "passive"))
-        labels.append(global_label(net_b, x, y + 3.81, 270, "passive"))
-
+    # footprint shorthands
     fp0402 = "AdeptBT:C_0402_1005Metric"
     fp0603 = "AdeptBT:C_0603_1608Metric"
     fp0805 = "AdeptBT:C_0805_2012Metric"
     fp_elec = "AdeptBT:CP_Elec_6.3x5.3"
+    fp_r06 = "Resistor_SMD:R_0603_1608Metric"
+    fp_r12 = "AdeptBT:R_1206_3216Metric"
+    fp_led = "LED_SMD:LED_0603_1608Metric"
 
-    # U1 +3V3 (Raytac DEC4-style 1µF + local 100nF) — docs/DECOUPLING.md
-    place_cap("C1", "100n", fp0402, "+3V3", "GND", 165.1, 63.5)
-    place_cap("C2", "1u", fp0603, "+3V3", "GND", 170.18, 63.5)
-    # USB VBUS
-    place_cap("C3", "100n", fp0402, "USB_5V", "GND", 195.58, 215.9)
-    place_cap("C4", "10u", fp0805, "USB_5V", "GND", 200.66, 215.9)
+    def vcap(ref, value, fp, net_a, net_b, x, y, polar=False):
+        """Vertical cap: pin1 (top)=net_a, pin2 (bottom)=net_b."""
+        lib = "Device:C_Polarized" if polar else "Device:C"
+        P.append(sym(lib, ref, value, fp, x, y, ["1", "2"]))
+        L.append(gl(net_a, x, y - 3.81, 90, "passive"))
+        L.append(gl(net_b, x, y + 3.81, 270, "passive"))
 
-    # U2 / U3 TMC2209 (datasheet charge pump + VS + 5VOUT + VCC_IO)
-    for suffix, base_x, base_y, c0 in [
-        ("1", 241.3, 101.6, 10),
-        ("2", 241.3, 165.1, 20),
-    ]:
-        place_cap(
-            f"C{c0}",
-            "22n/50V",
-            fp0603,
-            f"CPO{suffix}",
-            f"CPI{suffix}",
-            base_x,
-            base_y,
-        )
-        place_cap(
-            f"C{c0 + 1}",
-            "100n",
-            fp0402,
-            f"VCP{suffix}",
-            f"VM{suffix}",
-            base_x + 7.62,
-            base_y,
-        )
-        place_cap(
-            f"C{c0 + 2}",
-            "4.7u",
-            fp0805,
-            f"5VOUT{suffix}",
-            "GND",
-            base_x,
-            base_y + 12.7,
-        )
-        place_cap(
-            f"C{c0 + 3}",
-            "100n",
-            fp0402,
-            "+3V3",
-            "GND",
-            base_x + 7.62,
-            base_y + 12.7,
-        )
-        place_cap(
-            f"C{c0 + 4}",
-            "100n",
-            fp0402,
-            f"VM{suffix}",
-            "GND",
-            base_x,
-            base_y + 25.4,
-        )
-        place_cap(
-            f"C{c0 + 5}",
-            "100u/25V",
-            fp_elec,
-            f"VM{suffix}",
-            "GND",
-            base_x + 10.16,
-            base_y + 25.4,
-            polarized=True,
-        )
+    def vres(ref, value, fp, net_a, net_b, x, y):
+        """Vertical resistor: pin1 (top)=net_a, pin2 (bottom)=net_b."""
+        P.append(sym("Device:R", ref, value, fp, x, y, ["1", "2"]))
+        L.append(gl(net_a, x, y - 3.81, 90, "passive"))
+        L.append(gl(net_b, x, y + 3.81, 270, "passive"))
 
-    # VIN entry
-    place_cap("C30", "100n", fp0402, "VIN", "GND", 88.9, 215.9)
-    place_cap(
-        "C31", "100u/25V", fp_elec, "VIN", "GND", 99.06, 215.9, polarized=True
+    # ================================================================
+    #  POWER PATH
+    # ================================================================
+    T.append(txt("Power path", 25, 22))
+    T.append(
+        txt(
+            "AdeptBT rev 0.13 — JLCPCB-first schematic\\n"
+            "MCU U1 Raytac MDBT50Q-1MV2  |  U2/U3 TMC2209-LA\\n"
+            "U4 AP63205  |  U5 MCP73871  |  U6 AMS1117\\n"
+            "VIN_RAW\\u2192F1\\u2192Q1\\u2192D1\\u2192VIN\\u2192buck\\u2192+5V\\u2192LDO\\u2192+3V3",
+            25,
+            10,
+            1.4,
+        )
     )
 
-    # ========== Power path (VIN_RAW → protect → VIN → buck/LDO/charger) ==========
-    # F1 PPTC — Device:Fuse pins at (0,±3.81)
-    parts.append(
-        place_symbol(
-            "Device:Fuse",
-            "F1",
-            "PPTC_2A",
-            "AdeptBT:Fuse_1812_4532Metric",
-            25.4,
-            165.1,
-            ["1", "2"],
+    # --- J_DC1 barrel jack ---
+    jdc_x, jdc_y = 38, 50
+    P.append(
+        sym(
+            "Connector:Barrel_Jack_MountingPin",
+            "J_DC1",
+            "5.5x2.1",
+            "AdeptBT:BarrelJack_CUI_PJ-063AH_Horizontal",
+            jdc_x,
+            jdc_y,
+            ["1", "2", "MP"],
         )
     )
-    labels.append(label_pin("VIN_RAW", 25.4, 165.1, 0, 3.81, 90))
-    labels.append(label_pin("VIN_F", 25.4, 165.1, 0, -3.81, 270))
+    jdc_p1 = psp(jdc_x, jdc_y, 0, 7.62, 2.54)   # tip  VIN_RAW
+    jdc_p2 = psp(jdc_x, jdc_y, 0, 7.62, -2.54)   # sleeve GND
+    jdc_mp = psp(jdc_x, jdc_y, 0, 0, -7.62)       # MP  GND
+    L.append(gl("VIN_RAW", *jdc_p1, 180, "output"))
+    L.append(gl("GND", *jdc_p2, 180, "output"))
+    L.append(gl("GND", *jdc_mp, 270, "input"))
 
-    # Q1 P-FET reverse — lib G/S/D remapped to pads 1/2/3
-    qx, qy = 38.1, 165.1
-    parts.append(
-        place_symbol(
-            "Device:Q_PMOS",
-            "Q1",
-            "AO3407",
-            "AdeptBT:SOT-23",
-            qx,
-            qy,
-            ["1", "2", "3"],
-        )
+    # --- F1 PPTC fuse (horizontal, angle 90 → pin1 left, pin2 right) ---
+    f1_x, f1_y = 68, 50
+    P.append(
+        sym("Device:Fuse", "F1", "PPTC_2A",
+            "AdeptBT:Fuse_1812_4532Metric", f1_x, f1_y, ["1", "2"], 90)
     )
-    labels.append(label_pin("GND", qx, qy, -5.08, 0, 0))  # G
-    labels.append(label_pin("VIN_F", qx, qy, 2.54, -5.08, 90))  # S
-    labels.append(label_pin("VIN", qx, qy, 2.54, 5.08, 270))  # D
+    f1_p1 = psp(f1_x, f1_y, 90, *V1)  # VIN_RAW (left)
+    f1_p2 = psp(f1_x, f1_y, 90, *V2)  # VIN_F   (right)
+    L.append(gl("VIN_RAW", *f1_p1, 0, "input"))
 
-    # D1 SMBJ24A — Device:D pin1=K left, pin2=A right; K→VIN, A→GND
-    dx, dy = 50.8, 165.1
-    parts.append(
-        place_symbol(
-            "Device:D",
-            "D1",
-            "SMBJ24A",
-            "AdeptBT:D_SMB",
-            dx,
-            dy,
-            ["1", "2"],
-        )
+    # --- Q1 P-FET (angle 0, vertical: D top, S bottom, G left) ---
+    # Pin lib offsets: G=1 (-5.08,0), S=2 (2.54,-5.08), D=3 (2.54,5.08)
+    q1_x, q1_y = 85, 55
+    P.append(
+        sym("Device:Q_PMOS", "Q1", "AO3407",
+            "AdeptBT:SOT-23", q1_x, q1_y, ["1", "2", "3"])
     )
-    labels.append(label_pin("VIN", dx, dy, -3.81, 0, 0))  # K
-    labels.append(label_pin("GND", dx, dy, 3.81, 0, 180))  # A
+    L.append(gl("GND", *psp(q1_x, q1_y, 0, -5.08, 0), 0, "input"))        # G
+    L.append(gl("VIN_F", *psp(q1_x, q1_y, 0, 2.54, -5.08), 270, "input"))  # S
+    L.append(gl("VIN", *psp(q1_x, q1_y, 0, 2.54, 5.08), 90, "output"))     # D
 
-    # U4 AP63205WU (AP63200 pinout): 1 FB, 2 EN, 3 IN, 4 GND, 5 SW, 6 BST
-    # EN→VIN so buck starts before +3V3 exists; FB→+5V (fixed 5 V).
-    u4x, u4y = 76.2, 165.1
-    parts.append(
-        place_symbol(
-            "Regulator_Switching:AP63205WU",
-            "U4",
-            "AP63205WU-7",
-            "AdeptBT:TSOT-23-6",
-            u4x,
-            u4y,
-            ["1", "2", "3", "4", "5", "6"],
-        )
+    # F1.pin2 label (VIN_F net, label instead of wire to avoid cross-pin)
+    L.append(gl("VIN_F", *f1_p2, 180, "passive"))
+
+    # --- D1 TVS diode (vertical angle 270 → K top=VIN, A bottom=GND) ---
+    d1_x, d1_y = 105, 60
+    P.append(
+        sym("Device:D", "D1", "SMBJ24A",
+            "AdeptBT:D_SMB", d1_x, d1_y, ["1", "2"], 270)
     )
-    labels.append(label_pin("+5V", u4x, u4y, 10.16, -2.54, 180))  # FB
-    labels.append(label_pin("VIN", u4x, u4y, -10.16, -2.54, 0))  # EN
-    labels.append(label_pin("VIN", u4x, u4y, -10.16, 2.54, 0))  # IN
-    labels.append(label_pin("GND", u4x, u4y, 0, -7.62, 90))
-    labels.append(label_pin("SW", u4x, u4y, 10.16, 2.54, 180))
-    labels.append(label_pin("BST", u4x, u4y, 10.16, 0, 180))
+    L.append(gl("VIN", *psp(d1_x, d1_y, 270, *H1), 90, "input"))
+    L.append(gl("GND", *psp(d1_x, d1_y, 270, *H2), 270, "input"))
 
-    parts.append(
-        place_symbol(
-            "Device:L",
-            "L1",
-            "4.7uH",
-            "AdeptBT:L_6.3x6.3_H3",
-            101.6,
-            165.1,
-            ["1", "2"],
-        )
+    # VIN entry caps
+    vcap("C30", "100n", fp0402, "VIN", "GND", 118, 55)
+    vcap("C31", "100u/25V", fp_elec, "VIN", "GND", 128, 55, polar=True)
+
+    # --- Jumpers ---
+    jpv_x, jpv_y = 148, 50
+    P.append(
+        sym("Connector_Generic:Conn_01x03", "JP_V+1", "V+",
+            "AdeptBT:PinHeader_1x03_P2.54mm_Vertical", jpv_x, jpv_y,
+            ["1", "2", "3"])
     )
-    labels.append(label_pin("SW", 101.6, 165.1, 0, 3.81, 90))
-    labels.append(label_pin("+5V", 101.6, 165.1, 0, -3.81, 270))
+    conn_labels(jpv_x, jpv_y, 3, ["+3V3", "V+", "VIN"], P, L)
 
-    # Buck caps (AP63205 DS / EVM)
-    place_cap("C40", "10u", fp0805, "VIN", "GND", 63.5, 152.4)
-    place_cap("C402", "100n", fp0402, "VIN", "GND", 68.58, 152.4)
-    place_cap("C41", "22u", fp0805, "+5V", "GND", 101.6, 152.4)
-    place_cap("C412", "22u", fp0805, "+5V", "GND", 106.68, 152.4)
-    place_cap("C42", "100n", fp0402, "BST", "SW", 91.44, 152.4)
-
-    # U6 AMS1117-3.3: 1 GND (0,-7.62), 2 VO (7.62,0), 3 VI (-7.62,0)
-    u6x, u6y = 127.0, 165.1
-    parts.append(
-        place_symbol(
-            "Regulator_Linear:AMS1117-3.3",
-            "U6",
-            "AMS1117-3.3",
-            "AdeptBT:SOT-223-3_TabPin2",
-            u6x,
-            u6y,
-            ["1", "2", "3"],
-        )
+    jpvm1_x, jpvm1_y = 148, 72
+    P.append(
+        sym("Connector_Generic:Conn_01x02", "JP_VM1", "VM1",
+            "AdeptBT:PinHeader_1x02_P2.54mm_Vertical", jpvm1_x, jpvm1_y,
+            ["1", "2"])
     )
-    labels.append(label_pin("GND", u6x, u6y, 0, -7.62, 90))
-    labels.append(label_pin("+3V3", u6x, u6y, 7.62, 0, 180))
-    labels.append(label_pin("+5V", u6x, u6y, -7.62, 0, 0))
-    place_cap("C50", "10u", fp0805, "+5V", "GND", 119.38, 152.4)
-    place_cap("C51", "22u", fp0805, "+3V3", "GND", 134.62, 152.4)
+    conn_labels(jpvm1_x, jpvm1_y, 2, ["VIN", "VM1"], P, L)
 
-    # U5 MCP73871 — power path + PROG1; unused prog/therm tied per DS
-    u5x, u5y = 165.1, 165.1
-    mcp_pins = [str(i) for i in range(1, 22)]
-    parts.append(
-        place_symbol(
-            "Battery_Management:MCP73871",
-            "U5",
-            "MCP73871",
+    jpvm2_x, jpvm2_y = 148, 88
+    P.append(
+        sym("Connector_Generic:Conn_01x02", "JP_VM2", "VM2",
+            "AdeptBT:PinHeader_1x02_P2.54mm_Vertical", jpvm2_x, jpvm2_y,
+            ["1", "2"])
+    )
+    conn_labels(jpvm2_x, jpvm2_y, 2, ["VIN", "VM2"], P, L)
+
+    # --- J_PWR1 ---
+    jpwr_x, jpwr_y = 38, 90
+    P.append(
+        sym("Connector_Generic:Conn_01x06", "J_PWR1", "TE_2383941-6",
+            "AdeptBT:TE_2383945-6_1x06_P3.81mm_SMD", jpwr_x, jpwr_y,
+            [str(i) for i in range(1, 7)])
+    )
+    conn_labels(jpwr_x, jpwr_y, 6,
+                ["VIN_RAW", "GND", "V+", "OUT1", "V+", "OUT2"], P, L)
+
+    # ================================================================
+    #  BUCK CONVERTER
+    # ================================================================
+    T.append(txt("Buck converter", 170, 22))
+
+    vcap("C40", "10u", fp0805, "VIN", "GND", 178, 55)
+    vcap("C402", "100n", fp0402, "VIN", "GND", 188, 55)
+
+    # --- U4 AP63205WU ---
+    u4_x, u4_y = 215, 50
+    P.append(
+        sym("Regulator_Switching:AP63205WU", "U4", "AP63205WU-7",
+            "AdeptBT:TSOT-23-6", u4_x, u4_y,
+            ["1", "2", "3", "4", "5", "6"])
+    )
+    # pin lib offsets: 1=FB(10.16,-2.54) 2=EN(-10.16,-2.54) 3=IN(-10.16,2.54)
+    #                  4=GND(0,-7.62)    5=SW(10.16,2.54)   6=BST(10.16,0)
+    L.append(gl("+5V", *psp(u4_x, u4_y, 0, 10.16, -2.54), 180, "output"))   # FB
+    L.append(gl("VIN", *psp(u4_x, u4_y, 0, -10.16, -2.54), 0, "input"))    # EN
+    L.append(gl("VIN", *psp(u4_x, u4_y, 0, -10.16, 2.54), 0, "input"))     # IN
+    L.append(gl("GND", *psp(u4_x, u4_y, 0, 0, -7.62), 270, "input"))       # GND
+    L.append(gl("SW", *psp(u4_x, u4_y, 0, 10.16, 2.54), 180, "output"))    # SW
+    L.append(gl("BST", *psp(u4_x, u4_y, 0, 10.16, 0), 180, "output"))      # BST
+
+    # Bootstrap cap
+    vcap("C42", "100n", fp0402, "BST", "SW", 240, 40)
+
+    # --- L1 inductor (horizontal angle 90 → pin1 left=SW, pin2 right=+5V) ---
+    l1_x, l1_y = 255, 50
+    P.append(
+        sym("Device:L", "L1", "4.7uH",
+            "AdeptBT:L_6.3x6.3_H3", l1_x, l1_y, ["1", "2"], 90)
+    )
+    L.append(gl("SW", *psp(l1_x, l1_y, 90, *V1), 0, "passive"))
+    L.append(gl("+5V", *psp(l1_x, l1_y, 90, *V2), 180, "output"))
+
+    # Buck output caps
+    vcap("C41", "22u", fp0805, "+5V", "GND", 270, 55)
+    vcap("C412", "22u", fp0805, "+5V", "GND", 280, 55)
+
+    # ================================================================
+    #  LDO
+    # ================================================================
+    T.append(txt("LDO", 300, 22))
+
+    vcap("C50", "10u", fp0805, "+5V", "GND", 305, 55)
+
+    u6_x, u6_y = 330, 50
+    P.append(
+        sym("Regulator_Linear:AMS1117-3.3", "U6", "AMS1117-3.3",
+            "AdeptBT:SOT-223-3_TabPin2", u6_x, u6_y, ["1", "2", "3"])
+    )
+    # pin lib: 1=GND(0,-7.62) 2=VO(7.62,0) 3=VI(-7.62,0)
+    L.append(gl("GND", *psp(u6_x, u6_y, 0, 0, -7.62), 270, "input"))
+    L.append(gl("+3V3", *psp(u6_x, u6_y, 0, 7.62, 0), 180, "output"))
+    L.append(gl("+5V", *psp(u6_x, u6_y, 0, -7.62, 0), 0, "input"))
+
+    vcap("C51", "22u", fp0805, "+3V3", "GND", 350, 55)
+
+    # ================================================================
+    #  BATTERY CHARGER
+    # ================================================================
+    T.append(txt("Battery charger", 370, 22))
+
+    u5_x, u5_y = 435, 55
+    P.append(
+        sym("Battery_Management:MCP73871", "U5", "MCP73871",
             "AdeptBT:QFN-20-1EP_4x4mm_P0.5mm_EP2.5x2.5mm",
-            u5x,
-            u5y,
-            mcp_pins,
-        )
+            u5_x, u5_y, [str(i) for i in range(1, 22)])
     )
-    labels.append(label_pin("+5V", u5x, u5y, 0, 22.86, 270))  # IN
-    labels.append(label_pin("GND", u5x, u5y, 0, -22.86, 90))  # VSS
-    labels.append(label_pin("VBAT", u5x, u5y, 17.78, 7.62, 180))  # VBAT
-    labels.append(label_pin("VBAT", u5x, u5y, 17.78, 2.54, 180))  # VBAT_SENSE
-    labels.append(label_pin("+5V", u5x, u5y, 17.78, 15.24, 180))  # OUT
-    labels.append(label_pin("CHG_STAT", u5x, u5y, 17.78, -10.16, 180))  # STAT1
-    labels.append(label_pin("+5V", u5x, u5y, -17.78, -15.24, 0))  # CE high
-    labels.append(label_pin("PROG1", u5x, u5y, -17.78, 5.08, 0))
-    labels.append(label_pin("GND", u5x, u5y, -17.78, 10.16, 0))  # SEL=USB/AC low
-    labels.append(label_pin("GND", u5x, u5y, -17.78, 2.54, 0))  # PROG2 off
-    labels.append(label_pin("GND", u5x, u5y, -17.78, 0, 0))  # PROG3 off
-    labels.append(label_pin("+5V", u5x, u5y, -17.78, -10.16, 0))  # ~TE high = timer en
-    labels.append(label_pin("+5V", u5x, u5y, -17.78, 15.24, 0))  # VPCC
-    labels.append(label_pin("GND", u5x, u5y, -17.78, -5.08, 0))  # THERM → GND (no NTC)
-    labels.append(no_connect(*pin_xy(u5x, u5y, 17.78, -5.08)))  # ~PG
-    labels.append(no_connect(*pin_xy(u5x, u5y, 17.78, -12.7)))  # STAT2
-    # PROG1 ≈ 2kΩ → ~500 mA (IPROG≈1000/RPROG1)
-    rpx, rpy = 134.62, 170.18
-    parts.append(
-        place_symbol(
-            "Device:R",
-            "RPROG1",
-            "2k",
-            "AdeptBT:R_0603_1608Metric",
-            rpx,
-            rpy,
-            ["1", "2"],
-        )
+    # Right side
+    L.append(gl("+5V", *psp(u5_x, u5_y, 0, 17.78, 15.24), 180, "output"))    # OUT 1/20
+    L.append(gl("VBAT", *psp(u5_x, u5_y, 0, 17.78, 7.62), 180, "output"))    # VBAT 14/15
+    L.append(gl("VBAT", *psp(u5_x, u5_y, 0, 17.78, 2.54), 180, "input"))     # VBAT_SENSE 16
+    L.append(nc(*psp(u5_x, u5_y, 0, 17.78, -5.08)))                           # ~PG  6
+    L.append(nc(*psp(u5_x, u5_y, 0, 17.78, -12.7)))                           # STAT2 7
+    L.append(gl("CHG_STAT", *psp(u5_x, u5_y, 0, 17.78, -10.16), 180, "output"))  # STAT1 8
+    # Left side
+    L.append(gl("+5V", *psp(u5_x, u5_y, 0, -17.78, 15.24), 0, "input"))      # VPCC 2
+    L.append(gl("GND", *psp(u5_x, u5_y, 0, -17.78, 10.16), 0, "input"))      # SEL 3
+    L.append(gl("GND", *psp(u5_x, u5_y, 0, -17.78, 2.54), 0, "input"))       # PROG2 4
+    L.append(gl("GND", *psp(u5_x, u5_y, 0, -17.78, -5.08), 0, "input"))      # THERM 5
+    L.append(gl("+5V", *psp(u5_x, u5_y, 0, -17.78, -10.16), 0, "input"))     # ~TE 9
+    L.append(gl("GND", *psp(u5_x, u5_y, 0, -17.78, 0), 0, "input"))          # PROG3 12
+    L.append(gl("PROG1", *psp(u5_x, u5_y, 0, -17.78, 5.08), 0, "input"))     # PROG1 13
+    L.append(gl("+5V", *psp(u5_x, u5_y, 0, -17.78, -15.24), 0, "input"))     # CE 17
+    # Top / bottom
+    L.append(gl("+5V", *psp(u5_x, u5_y, 0, 0, 22.86), 90, "input"))          # IN 18/19
+    L.append(gl("GND", *psp(u5_x, u5_y, 0, 0, -22.86), 270, "input"))        # VSS 10/11/21
+
+    vres("RPROG1", "2k", "AdeptBT:R_0603_1608Metric", "PROG1", "GND", 410, 75)
+    vcap("C61", "4.7u", fp0805, "+5V", "GND", 400, 90)
+    vcap("C60", "4.7u", fp0805, "VBAT", "GND", 465, 90)
+
+    # J_BAT1
+    jbat_x, jbat_y = 485, 55
+    P.append(
+        sym("Connector_Generic_MountingPin:Conn_01x02_MountingPin",
+            "J_BAT1", "BAT",
+            "AdeptBT:JST_PH_S2B-PH-SM4-TB_1x02-1MP_P2.00mm_Horizontal",
+            jbat_x, jbat_y, ["1", "2", "MP"])
     )
-    labels.append(global_label("PROG1", rpx, rpy - 3.81, 90, "passive"))
-    labels.append(global_label("GND", rpx, rpy + 3.81, 270, "passive"))
-    place_cap("C60", "4.7u", fp0805, "VBAT", "GND", 182.88, 142.24)
-    place_cap("C61", "4.7u", fp0805, "+5V", "GND", 188.0, 142.24)
+    conn_labels(jbat_x, jbat_y, 2, ["VBAT", "GND"], P, L)
+    L.append(gl("GND", *psp(jbat_x, jbat_y, 0, 0, -7.62), 270, "input"))
 
-    # TMC sense Rs — 0.11Ω (common TMC2209 module; ~1 A RMS w/ VREF)
-    fp_rs = "AdeptBT:R_1206_3216Metric"
-    for ref, net, x, y in [
-        ("RSA1", "BRA_1", 241.3, 88.9),
-        ("RSB1", "BRB_1", 254.0, 88.9),
-        ("RSA2", "BRA_2", 241.3, 152.4),
-        ("RSB2", "BRB_2", 254.0, 152.4),
-    ]:
-        parts.append(
-            place_symbol("Device:R", ref, "0.12", fp_rs, x, y, ["1", "2"])
-        )
-        labels.append(global_label(net, x, y - 3.81, 90, "passive"))
-        labels.append(global_label("GND", x, y + 3.81, 270, "passive"))
+    # ================================================================
+    #  MCU U1 + USB / SWD / LEDs
+    # ================================================================
+    T.append(txt("MCU U1 MDBT50Q-1MV2", 100, 115))
 
-    # ========== Discrete outs ==========
-    # Q2 / Q3 NPN — pads 1=B, 2=E, 3=C; base via series R from MCU GPIO
-    for ref, base_net, out, qx in [
-        ("Q2", "OUT1_B", "OUT1", 38.1),
-        ("Q3", "OUT2_B", "OUT2", 63.5),
-    ]:
-        qy = 215.9
-        parts.append(
-            place_symbol(
-                "Device:Q_NPN",
-                ref,
-                "MMBT2222A",
-                "Package_TO_SOT_SMD:SOT-23",
-                qx,
-                qy,
-                ["1", "2", "3"],
-            )
-        )
-        labels.append(label_pin(base_net, qx, qy, -5.08, 0, 0))  # B
-        labels.append(label_pin(out, qx, qy, 2.54, 5.08, 90))  # C
-        labels.append(label_pin("GND", qx, qy, 2.54, -5.08, 270))  # E
+    mcu_x, mcu_y = 200, 200
+    P.append(
+        sym("jlc:MDBT50Q-1MV2", "U1", "MDBT50Q-1MV2",
+            "jlc:COMM-SMD_MDBT50Q-1MV2-1", mcu_x, mcu_y,
+            [str(i) for i in range(1, 62)])
+    )
 
-    # Flyback diodes (K toward V+, A toward OUT)
-    for ref, net, x in [("D2", "OUT1", 38.1), ("D3", "OUT2", 63.5)]:
-        dy = 241.3
-        parts.append(
-            place_symbol(
-                "Device:D",
-                ref,
-                "1N4148W",
-                "Diode_SMD:D_SOD-123",
-                x,
-                dy,
-                ["1", "2"],
-            )
-        )
-        labels.append(label_pin("V+", x, dy, -3.81, 0, 0))  # K
-        labels.append(label_pin(net, x, dy, 3.81, 0, 180))  # A
+    # Left bank: pins 1-31  lib (-31.75, 38.1 - (n-1)*2.54)
+    left_nets = {
+        1: "GND", 2: "GND", 9: "AIN1", 11: "AIN0", 15: "GND",
+        20: "AIN2", 21: "AIN3", 22: "OUT1_DRV", 23: "LED_USER",
+        24: "OUT2_DRV", 28: "+3V3", 30: "+3V3",
+    }
+    for n in range(1, 32):
+        ly = 38.1 - (n - 1) * 2.54
+        px, py = psp(mcu_x, mcu_y, 0, -31.75, ly)
+        if n in left_nets:
+            L.append(gl(left_nets[n], px, py, 0, "input"))
+        else:
+            L.append(nc(px, py))
 
-    # Base resistors: MCU OUTn_DRV → Rn → OUTn_B → Q base
-    for ref, drv, base, x in [
-        ("R2", "OUT1_DRV", "OUT1_B", 25.4),
-        ("R3", "OUT2_DRV", "OUT2_B", 50.8),
-    ]:
-        ry = 203.2
-        parts.append(
-            place_symbol(
-                "Device:R",
-                ref,
-                "1k",
-                "Resistor_SMD:R_0603_1608Metric",
-                x,
-                ry,
-                ["1", "2"],
-            )
-        )
-        labels.append(label_pin(drv, x, ry, 0, 3.81, 90))
-        labels.append(label_pin(base, x, ry, 0, -3.81, 270))
+    # Right bank: pins 32-61  lib (31.75, -38.1 + (n-32)*2.54)
+    right_nets = {
+        32: "USB_5V", 33: "GND", 34: "USB_D-", 35: "USB_D+",
+        36: "TMC_UART", 37: "STEP1_EN", 38: "STEP2_STEP",
+        39: "STEP2_DIR", 40: "nRESET", 41: "STEP2_EN",
+        43: "STEP1_STEP", 44: "STEP1_DIR",
+        45: "D0", 46: "D1", 47: "D2", 48: "D3",
+        49: "CHG_STAT", 51: "SWDIO", 53: "SWDCLK", 55: "GND",
+    }
+    for n in range(32, 62):
+        ly = -38.1 + (n - 32) * 2.54
+        px, py = psp(mcu_x, mcu_y, 0, 31.75, ly)
+        if n in right_nets:
+            L.append(gl(right_nets[n], px, py, 180, "output"))
+        else:
+            L.append(nc(px, py))
 
-    # Status LEDs — Device:LED pin1=K left, pin2=A right (refs must end in a digit).
-    # PWR1: +3V3→A, K→R4→GND; CHG1: +3V3→A, K→R5→CHG_STAT (OC); USR1: LED_USER→A, K→R6→GND
-    led_fp = "LED_SMD:LED_0603_1608Metric"
-    r_fp = "Resistor_SMD:R_0603_1608Metric"
-    for ref, value, anode, cathode_tail, lx in [
-        ("PWR1", "PWR", "+3V3", "GND", 177.8),
-        ("CHG1", "CHG", "+3V3", "CHG_STAT", 190.5),
-        ("USR1", "USR", "LED_USER", "GND", 203.2),
-    ]:
-        ly = 241.3
-        k_net = f"Net_{ref}_K"
-        parts.append(
-            place_symbol("Device:LED", ref, value, led_fp, lx, ly, ["1", "2"])
-        )
-        labels.append(label_pin(k_net, lx, ly, -3.81, 0, 0))  # K
-        labels.append(label_pin(anode, lx, ly, 3.81, 0, 180))  # A
-        rref = {"PWR1": "R4", "CHG1": "R5", "USR1": "R6"}[ref]
-        ry = ly + 10.16
-        parts.append(place_symbol("Device:R", rref, "1k", r_fp, lx, ry, ["1", "2"]))
-        labels.append(label_pin(k_net, lx, ry, 0, 3.81, 90))
-        labels.append(label_pin(cathode_tail, lx, ry, 0, -3.81, 270))
+    # MCU decoupling
+    vcap("C1", "100n", fp0402, "+3V3", "GND", 158, 142)
+    vcap("C2", "1u", fp0603, "+3V3", "GND", 168, 142)
 
-    # USB-C CC Rd 5.1k (UFP sink)
-    for ref, net, x in [("RCC1", "CC1", 215.9), ("RCC2", "CC2", 228.6)]:
-        ry = 241.3
-        parts.append(
-            place_symbol("Device:R", ref, "5.1k", r_fp, x, ry, ["1", "2"])
-        )
-        labels.append(label_pin(net, x, ry, 0, 3.81, 90))
-        labels.append(label_pin("GND", x, ry, 0, -3.81, 270))
+    # ---- USB ----
+    T.append(txt("USB + SWD", 25, 115))
 
-    # TMC VREF set resistors (placeholder; tune for motor current)
-    for ref, net, x, y in [
-        ("RVREF1", "VREF_1", 266.7, 101.6),
-        ("RVREF2", "VREF_2", 266.7, 165.1),
-    ]:
-        parts.append(
-            place_symbol("Device:R", ref, "10k", r_fp, x, y, ["1", "2"])
-        )
-        labels.append(label_pin(net, x, y, 0, 3.81, 90))
-        labels.append(label_pin("GND", x, y, 0, -3.81, 270))
-
-    # Power symbols + PWR_FLAG (pin at instance origin)
-    pwr_refs = [
-        ("#PWR01", "power:GND", "GND", 25.4, 254.0),
-        ("#PWR02", "power:+3V3", "+3V3", 38.1, 254.0),
-        ("#PWR03", "power:+5V", "+5V", 50.8, 254.0),
+    jusb_x, jusb_y = 55, 185
+    usb_all = [
+        "A4", "A9", "B4", "B9", "A6", "B6", "A7", "B7",
+        "A5", "B5", "A1", "A12", "B1", "B12", "SH", "A8", "B8",
     ]
-    for ref, lib, net, x, y in pwr_refs:
-        parts.append(place_symbol(lib, ref, net, "", x, y, ["1"]))
-        labels.append(global_label(net, x, y, 0, "input"))
-    # PWR_FLAG only on nets without a regulator Power-output pin (else pin_to_pin).
-    for i, (net, x) in enumerate(
-        [("GND", 63.5), ("VIN", 76.2), ("USB_5V", 88.9), ("VIN_RAW", 101.6)],
-        start=1,
+    P.append(
+        sym("AdeptBT:USB_C_GCT_16P", "J_USB1", "USB-C",
+            "AdeptBT:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
+            jusb_x, jusb_y, usb_all)
+    )
+    for net, ly in zip(
+        ["USB_5V", "USB_D+", "USB_D-", "CC1", "CC2", "GND"],
+        [5.08, 2.54, 0, -2.54, -5.08, -7.62],
     ):
-        y = 266.7
-        parts.append(
-            place_symbol("power:PWR_FLAG", f"#FLG{i:02d}", "PWR_FLAG", "", x, y, ["1"])
-        )
-        labels.append(global_label(net, x, y, 0, "input"))
+        L.append(gl(net, *psp(jusb_x, jusb_y, 0, -5.08, ly), 0, "input"))
+    L.append(nc(*psp(jusb_x, jusb_y, 0, 5.08, 2.54)))   # SBU1
+    L.append(nc(*psp(jusb_x, jusb_y, 0, 5.08, 0)))       # SBU2
 
-    notes = text_block(
-        "AdeptBT rev 0.12 — JLCPCB-first schematic\\n"
-        "MCU U1 Raytac MDBT50Q-1MV2  |  U2/U3 TMC2209-LA  |  U4 AP63205  |  U5 MCP73871  |  U6 AMS1117\\n"
-        "Power: VIN_RAW→F1 PPTC→Q1 AO3407→D1 SMBJ24A→VIN→buck→+5V→LDO→+3V3; charger on +5V/VBAT\\n"
-        "Jumpers JP_V+1 (3V3/V+/VIN), JP_VM1/2 (VIN/VM); holes M1–M4; CC Rd 5.1k\\n"
-        "GPIO lock: AIN0-3=P0.02-05; OUT1/2=P0.06/08; TMC_UART=P0.14; CHG_STAT=P0.25",
-        20,
-        10,
-        1.4,
+    vcap("C3", "100n", fp0402, "USB_5V", "GND", 70, 212)
+    vcap("C4", "10u", fp0805, "USB_5V", "GND", 80, 212)
+    vres("RCC1", "5.1k", fp_r06, "CC1", "GND", 40, 215)
+    vres("RCC2", "5.1k", fp_r06, "CC2", "GND", 50, 215)
+
+    # ---- SWD ----
+    jswd_x, jswd_y = 260, 165
+    P.append(
+        sym("Connector_Generic:Conn_01x05", "J_SWD1", "SWD",
+            "AdeptBT:PinHeader_1x05_P2.54mm_Vertical", jswd_x, jswd_y,
+            [str(i) for i in range(1, 6)])
+    )
+    conn_labels(jswd_x, jswd_y, 5,
+                ["SWDIO", "SWDCLK", "GND", "+3V3", "nRESET"], P, L)
+
+    # ================================================================
+    #  STATUS LEDs (vertical chain: LED → wire → R)
+    # ================================================================
+    T.append(txt("Status LEDs", 280, 115))
+
+    for lx, led_ref, led_val, r_ref, anode_net, tail_net in [
+        (295, "PWR1", "PWR", "R4", "+3V3", "GND"),
+        (315, "CHG1", "CHG", "R5", "+3V3", "CHG_STAT"),
+        (335, "USR1", "USR", "R6", "LED_USER", "GND"),
+    ]:
+        ly_led = 140
+        # LED vertical (angle 90): A top, K bottom
+        P.append(
+            sym("Device:LED", led_ref, led_val, fp_led,
+                lx, ly_led, ["1", "2"], 90)
+        )
+        led_a = psp(lx, ly_led, 90, *H2)  # A top
+        led_k = psp(lx, ly_led, 90, *H1)  # K bottom
+        L.append(gl(anode_net, *led_a, 90, "input"))
+
+        # R directly below
+        ly_r = ly_led + 15.24
+        P.append(sym("Device:R", r_ref, "1k", fp_r06, lx, ly_r, ["1", "2"]))
+        r_p1 = (lx, ly_r - 3.81)
+        r_p2 = (lx, ly_r + 3.81)
+
+        # Wire LED.K → R.pin1 (vertical, same X)
+        W.append(wr(*led_k, *r_p1))
+        k_net = f"Net_{led_ref}_K"
+        L.append(gl(k_net, *led_k, 0, "passive"))
+
+        L.append(gl(tail_net, *r_p2, 270, "passive"))
+
+    # ================================================================
+    #  OUT DRIVERS (R → wire → Q; D flyback)
+    # ================================================================
+    T.append(txt("OUT drivers", 370, 115))
+
+    for ox, q_ref, r_ref, d_ref, drv_net, out_net, b_net in [
+        (390, "Q2", "R2", "D2", "OUT1_DRV", "OUT1", "OUT1_B"),
+        (430, "Q3", "R3", "D3", "OUT2_DRV", "OUT2", "OUT2_B"),
+    ]:
+        # R (vertical)
+        ry = 150
+        P.append(sym("Device:R", r_ref, "1k", fp_r06, ox, ry, ["1", "2"]))
+        r_p1 = (ox, ry - 3.81)
+        r_p2 = (ox, ry + 3.81)
+        L.append(gl(drv_net, *r_p1, 90, "input"))
+
+        # Q NPN
+        qy = ry + 20.32
+        P.append(
+            sym("Device:Q_NPN", q_ref, "MMBT2222A",
+                "Package_TO_SOT_SMD:SOT-23", ox + 5.08, qy,
+                ["1", "2", "3"])
+        )
+        q_b = psp(ox + 5.08, qy, 0, -5.08, 0)       # B
+        q_e = psp(ox + 5.08, qy, 0, 2.54, -5.08)     # E (below)
+        q_c = psp(ox + 5.08, qy, 0, 2.54, 5.08)      # C (above)
+
+        # Wire R.pin2 → Q.B
+        W.append(wr(*r_p2, *q_b))
+        L.append(gl(b_net, *r_p2, 0, "passive"))
+
+        L.append(gl("GND", *q_e, 270, "input"))
+
+        # D flyback (angle 270 → K top V+, A bottom)
+        dy = qy - 15.24
+        P.append(
+            sym("Device:D", d_ref, "1N4148W", "Diode_SMD:D_SOD-123",
+                ox + 7.62, dy, ["1", "2"], 270)
+        )
+        d_k = psp(ox + 7.62, dy, 270, *H1)
+        d_a = psp(ox + 7.62, dy, 270, *H2)
+
+        # Wire D.A → Q.C (both at same X, OUT net)
+        W.append(wr(*d_a, *q_c))
+        L.append(gl(out_net, *q_c, 90, "output"))
+        L.append(gl("V+", *d_k, 90, "input"))
+
+    # ================================================================
+    #  TMC2209 U2 + STEP1  /  U3 + STEP2
+    # ================================================================
+
+    def place_tmc(ref, x, y, suffix, ms1_net):
+        tmc_pins = [str(i) for i in range(1, 30)]
+        P.append(
+            sym("jlc:TMC2209-LA", ref, "TMC2209-LA",
+                "jlc:QFN-28_L5.0-W5.0-P0.50-BL-EP", x, y, tmc_pins)
+        )
+        # Left pins 1-15:  lib (-15.24, 17.78 - (n-1)*2.54)
+        left = {
+            1: f"B2_{suffix}", 2: f"STEP{suffix}_EN", 3: "GND",
+            4: f"CPO{suffix}", 5: f"CPI{suffix}", 6: f"VCP{suffix}",
+            7: "GND", 8: f"5VOUT{suffix}", 9: ms1_net,
+            10: "GND", 13: "GND", 14: "TMC_UART", 15: "+3V3",
+        }
+        for n, net in left.items():
+            ly = 17.78 - (n - 1) * 2.54
+            L.append(gl(net, *psp(x, y, 0, -15.24, ly), 0, "input"))
+        for n in (11, 12):
+            ly = 17.78 - (n - 1) * 2.54
+            L.append(nc(*psp(x, y, 0, -15.24, ly)))
+
+        # Right pins 16-29
+        rly = {
+            16: -16.51, 17: -13.97, 18: -11.43, 19: -8.89,
+            20: -6.35, 21: -3.81, 22: -1.27, 23: 1.27,
+            24: 3.81, 25: 6.35, 26: 8.89, 27: 11.43,
+            28: 13.97, 29: 16.51,
+        }
+        right = {
+            16: f"STEP{suffix}_STEP", 17: f"VREF_{suffix}",
+            18: "GND", 19: f"STEP{suffix}_DIR", 20: "GND",
+            21: f"A2_{suffix}", 22: f"VM{suffix}",
+            23: f"BRA_{suffix}", 24: f"A1_{suffix}",
+            26: f"B1_{suffix}", 27: f"BRB_{suffix}",
+            28: f"VM{suffix}", 29: "GND",
+        }
+        for n, net in right.items():
+            L.append(gl(net, *psp(x, y, 0, 15.24, rly[n]), 180, "output"))
+        L.append(nc(*psp(x, y, 0, 15.24, rly[25])))   # NC pin 25
+
+        # --- caps near TMC ---
+        cx_l = x - 28
+        c0 = 10 if suffix == "1" else 20
+
+        vcap(f"C{c0}", "22n/50V", fp0603, f"CPO{suffix}", f"CPI{suffix}",
+             cx_l, y - 10)
+        vcap(f"C{c0+1}", "100n", fp0402, f"VCP{suffix}", f"VM{suffix}",
+             cx_l + 10, y - 10)
+        vcap(f"C{c0+2}", "4.7u", fp0805, f"5VOUT{suffix}", "GND",
+             cx_l, y + 5)
+        vcap(f"C{c0+3}", "100n", fp0402, "+3V3", "GND",
+             cx_l + 10, y + 5)
+        vcap(f"C{c0+4}", "100n", fp0402, f"VM{suffix}", "GND",
+             x + 25, y - 5)
+        vcap(f"C{c0+5}", "100u/25V", fp_elec, f"VM{suffix}", "GND",
+             x + 35, y - 5, polar=True)
+
+        # Sense Rs
+        vres(f"RSA{suffix}", "0.12", fp_r12, f"BRA_{suffix}", "GND",
+             x + 25, y + 10)
+        vres(f"RSB{suffix}", "0.12", fp_r12, f"BRB_{suffix}", "GND",
+             x + 35, y + 10)
+        vres(f"RVREF{suffix}", "10k", fp_r06, f"VREF_{suffix}", "GND",
+             x + 45, y + 10)
+
+        # Stepper connector
+        jx = x + 55
+        P.append(
+            sym("Connector_Generic:Conn_01x06", f"J_STEP{suffix}",
+                "TE_2383941-6",
+                "AdeptBT:TE_2383945-6_1x06_P3.81mm_SMD",
+                jx, y, [str(i) for i in range(1, 7)])
+        )
+        conn_labels(jx, y, 6,
+                    [f"A1_{suffix}", f"A2_{suffix}", f"B1_{suffix}",
+                     f"B2_{suffix}", f"VM{suffix}", "GND"], P, L)
+
+    T.append(txt("TMC U2 + STEP1", 25, 260))
+    place_tmc("U2", 100, 310, "1", "GND")
+
+    T.append(txt("TMC U3 + STEP2", 215, 260))
+    place_tmc("U3", 290, 310, "2", "+3V3")
+
+    # ================================================================
+    #  CONNECTORS / HEADERS / HOLES
+    # ================================================================
+    T.append(txt("Connectors + holes", 460, 115))
+
+    jan_x, jan_y = 480, 165
+    P.append(
+        sym("Connector_Generic:Conn_01x07", "J_AN1", "ANALOG",
+            "AdeptBT:PinHeader_1x07_P2.54mm_Vertical", jan_x, jan_y,
+            [str(i) for i in range(1, 8)])
+    )
+    conn_labels(jan_x, jan_y, 7,
+                ["AIN0", "AIN1", "AIN2", "AIN3", "+3V3", "+5V", "GND"],
+                P, L)
+
+    jdg_x, jdg_y = 480, 205
+    P.append(
+        sym("Connector_Generic:Conn_01x06", "J_DG1", "DIGITAL",
+            "AdeptBT:PinHeader_1x06_P2.54mm_Vertical", jdg_x, jdg_y,
+            [str(i) for i in range(1, 7)])
+    )
+    conn_labels(jdg_x, jdg_y, 6,
+                ["D0", "D1", "D2", "D3", "+3V3", "GND"], P, L)
+
+    hole_fp = "AdeptBT:MountingHole_2.2mm_M2"
+    for i, hx in enumerate([500, 515, 530, 545], 1):
+        P.append(sym("Mechanical:MountingHole", f"M{i}", "M2", hole_fp,
+                      hx, 240, []))
+
+    # ================================================================
+    #  POWER SYMBOLS + PWR_FLAG
+    # ================================================================
+    pwr_y = 395
+    for ref, lib, val, px in [
+        ("#PWR01", "power:GND", "GND", 25),
+        ("#PWR02", "power:+3V3", "+3V3", 40),
+        ("#PWR03", "power:+5V", "+5V", 55),
+    ]:
+        P.append(sym(lib, ref, val, "", px, pwr_y, ["1"]))
+        L.append(gl(val, px, pwr_y, 0, "input"))
+
+    for i, (net, px) in enumerate(
+        [("GND", 75), ("VIN", 90), ("USB_5V", 105), ("VIN_RAW", 120)], 1
+    ):
+        P.append(sym("power:PWR_FLAG", f"#FLG{i:02d}", "PWR_FLAG", "",
+                      px, pwr_y + 10, ["1"]))
+        L.append(gl(net, px, pwr_y + 10, 0, "input"))
+
+    # ================================================================
+    #  ASSEMBLE
+    # ================================================================
+    body = "\n".join(T + P + L + W)
+    sch = (
+        f"(kicad_sch\n"
+        f'\t(version 20260306)\n'
+        f'\t(generator "gen_adeptbt_sch")\n'
+        f'\t(generator_version "0.13")\n'
+        f'\t(uuid "{SHEET_UUID}")\n'
+        f'\t(paper "A2")\n'
+        f"\t(title_block\n"
+        f'\t\t(title "AdeptBT")\n'
+        f'\t\t(date "2026-11-25")\n'
+        f'\t\t(rev "0.13")\n'
+        f'\t\t(company "coconnor55")\n'
+        f'\t\t(comment 1 "JLCPCB: Raytac C5118826, TMC C465949,'
+        f' TE C3816695, MCP73871 C5121473, AP63205 C2071056")\n'
+        f'\t\t(comment 2 "Power path + sense Rs; CC Rd;'
+        f' stackup docs/STACKUP.md")\n'
+        f"\t)\n"
+        f"{lib_syms}\n"
+        f"{body}\n"
+        f"\t(sheet_instances\n"
+        f'\t\t(path "/"\n'
+        f'\t\t\t(page "1")\n'
+        f"\t\t)\n"
+        f"\t)\n"
+        f"\t(embedded_fonts no)\n"
+        f")\n"
     )
 
-    # Fix MCU OUT labels: re-emit note that OUT1/OUT2 on MCU are GPIO (drive bases)
-    # Replace earlier left_map OUT1/OUT2 — already placed; add legend
-
-    body = "\n".join([notes] + parts + labels)
-
-    sch = f"""(kicad_sch
-\t(version 20260306)
-\t(generator "gen_adeptbt_sch")
-\t(generator_version "0.12")
-\t(uuid "{SHEET_UUID}")
-\t(paper "A2")
-\t(title_block
-\t\t(title "AdeptBT")
-\t\t(date "2026-11-23")
-\t\t(rev "0.12")
-\t\t(company "coconnor55")
-\t\t(comment 1 "JLCPCB: Raytac C5118826, TMC C465949, TE C3816695, MCP73871 C5121473, AP63205 C2071056")
-\t\t(comment 2 "Power path + sense Rs; CC Rd; stackup docs/STACKUP.md")
-\t)
-\t(lib_symbols
-{lib_syms}
-\t)
-{body}
-\t(sheet_instances
-\t\t(path "/"
-\t\t\t(page "1")
-\t\t)
-\t)
-\t(embedded_fonts no)
-)
-"""
     OUT.write_text(sch)
     print(f"Wrote {OUT}")
+    print(f"  {len(P)} parts, {len(L)} labels/NC, {len(W)} wires, {len(T)} texts")
 
 
 if __name__ == "__main__":

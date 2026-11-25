@@ -27,9 +27,15 @@ MARGIN = 0.15
 
 
 def board_xy(fx: float, fy: float, fang: float, lx: float, ly: float) -> tuple[float, float]:
+    """Map footprint-local (lx, ly) to board mm. KiCad PCB Y grows down."""
     a = math.radians(fang)
     ca, sa = math.cos(a), math.sin(a)
-    return fx + lx * ca - ly * sa, fy + lx * sa + ly * ca
+    return fx + lx * ca + ly * sa, fy - lx * sa + ly * ca
+
+
+def ref_stem(ref: str) -> str:
+    """J_DC1 → J_DC, M2 → M (holes keep full ref in HOLE_REFS)."""
+    return re.sub(r"\d+$", "", ref)
 
 
 def text_bbox(
@@ -134,9 +140,10 @@ def footprint_pad_boxes(ref, fx, fy, fang, body):
         bx, by = board_xy(fx, fy, fang, lx, ly)
         if abs(abs(fang) % 180 - 90) < 1:
             sx, sy = sy, sx
-        name = f"pad:{ref}.{m.group(1) or 'NP'}"
-        if any(n == name for n, _ in boxes):
-            continue
+        base = f"pad:{ref}.{m.group(1) or 'NP'}"
+        # Duplicate pad numbers (e.g. two MP) keep distinct entries.
+        n_dup = sum(1 for n, _ in boxes if n == base or n.startswith(base + "#"))
+        name = base if n_dup == 0 else f"{base}#{n_dup}"
         boxes.append(
             (name, (bx - sx / 2, by - sy / 2, bx + sx / 2, by + sy / 2))
         )
@@ -192,18 +199,23 @@ def main() -> int:
     solids: list[tuple[str, tuple]] = []
 
     for m in re.finditer(
-        r'\(gr_text "([^"]+)"\n\s+\(at ([-\d.]+) ([-\d.]+)(?: ([-\d.]+))?\)[\s\S]*?\(size ([-\d.]+)',
+        r'\(gr_text "([^"]+)"\n\s+\(at ([-\d.]+) ([-\d.]+)(?: ([-\d.]+))?\)\n\s+\(layer "([^"]+)"\)[\s\S]*?\(size ([-\d.]+)',
         text,
     ):
         label = m.group(1)
         x, y = float(m.group(2)), float(m.group(3))
         ang = float(m.group(4) or 0)
-        size = float(m.group(5))
+        layer = m.group(5)
+        size = float(m.group(6))
+        # Front copper/silk keep-away only; back silk is a different plane.
+        if layer != "F.SilkS":
+            continue
         texts.append((f"gr:{label}", text_bbox(x, y, label, size, ang)))
 
     fps = list(parse_footprints(text))
     bodies: list[tuple[str, tuple]] = []
     for ref, fx, fy, fang, body in fps:
+        stem = ref_stem(ref)
         # Reference on silk
         hide = False
         rm = re.search(
@@ -238,7 +250,8 @@ def main() -> int:
         if ref in HOLE_REFS:
             body_bb = hole_keepout_square(fx, fy)
             solids.append((f"keepout:{ref}", body_bb))
-        elif ref in EDGE_BODY_OUTLINE:
+        elif stem in EDGE_BODY_OUTLINE:
+            # Edge connectors: F.Fab often spans the mating plug — pack on silk.
             body_bb = footprint_layer_bbox(fx, fy, fang, body, "F.SilkS")
             if body_bb is None:
                 body_bb = footprint_layer_bbox(fx, fy, fang, body, "F.Fab")
@@ -266,10 +279,16 @@ def main() -> int:
     for n, bb in solids:
         if n.startswith("pad:") and not on_board(bb):
             off.append(f"PAD {n} x0={bb[0]:.2f}")
-        elif n.startswith(("F.SilkS:", "F.Fab:")) and not on_board(bb):
+        elif n.startswith("F.SilkS:") and not on_board(bb):
             off.append(f"FOOT {n} x0={bb[0]:.2f}")
-    # Body off-board uses F.Fab (already in solids). Courtyard may kiss Edge.Cuts
-    # on edge connectors; copper/fab must still stay on-board.
+        elif n.startswith("F.Fab:"):
+            # Edge connector F.Fab often draws the plug past Edge.Cuts — not a fab fail.
+            foot_ref = n.split(":", 1)[1]
+            if ref_stem(foot_ref) in EDGE_BODY_OUTLINE:
+                continue
+            if not on_board(bb):
+                off.append(f"FOOT {n} x0={bb[0]:.2f}")
+    # Pads and F.SilkS must stay on-board. Edge F.Fab plug outlines may overhang.
 
     hits = []
     for i in range(len(texts)):
