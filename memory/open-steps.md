@@ -3,7 +3,7 @@
 - ~~Finish Freerouting leftovers (VM/CHG_STAT/D2/D3/SWD, track_width, ant keepout).~~ Done PCB **3.5**: leftover Freerouting pass + widen 0.2 mm + ant_keepout y≥50.5 + GND_F FULL; DRC unconnected **4** (GND_F pour islands only — no open pad nets); shorts/track_width/items_not_allowed **0**. Snapshot: `hardware/snapshots/freeroute-leftover-3.5.kicad_pcb`. Optional: stitch remaining F.Cu GND islands in pcbnew without crossing +5V.
 - Routing (path B): net classes PowerHV/PowerLV/Signal in `adeptbt.kicad_pro`. Stub auto-router `tools/route_priority.py` leaves clearance/shorts on this density — do **not** treat a full auto pass as fab-ready. Prefer Freerouting for leftovers. Snapshot: `hardware/snapshots/pre-route-2026-11-24.kicad_pcb`.
 - Sch **0.14** / PCB **3.35**. Annotate: **Keep existing**. Reload from disk after SES import.
-- **Routing (active):** Ship **3.53**: Edge.Cuts locked at fab; GND vias refreshed; orphan vias removed; VM1/VM2 hand-complete with east edge clear (copper_edge 0). Next: remaining power (+5V/+3V3/VIN/VBAT) / signal / pour_gnd.
+- **Routing (active):** Hand power continued (+5V/V+…). GND vias refreshed → **3.56**. DRC: shorting/clearance/copper_edge 0; unconnected 105; USB hole_clearance×4. Next: finish opens / pour_gnd.
 - **Standing:** “End of script” for the vias path = `gnd_pad_vias --wipe` **and** Specctra DSN export + class rewrite — stop before launching Freerouting unless asked.
 - Confirm TE 2383941-6 pad geometry vs datasheet (current footprint is approximate). Owner: `hardware/libs/AdeptBT.pretty/TE_2383945-6_…`.
 - ~~Fill blank LCSC rows in assembly BOM.~~ Done for SMT + male headers (wave). Barrel locked **C84007** — still need DC-005C footprint + replace `PJ-063AH` on `J_DC1` (pin pattern, not body size).
