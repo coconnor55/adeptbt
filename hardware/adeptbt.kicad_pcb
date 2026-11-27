@@ -10,7 +10,7 @@
 	(title_block
 		(title "AdeptBT")
 		(date "2026-11-24")
-		(rev "3.56")
+		(rev "3.57")
 		(company "coconnor55")
 		(comment 1 "6×6 hole keepouts; 1 mm outline keep-away; STEP/U1 clear of screws")
 		(comment 2 "pcbnew owns placement; PWR1/CHG1/USR1; gen stopped; STACKUP.md")
@@ -17950,7 +17950,7 @@
 			)
 		)
 	)
-	(gr_text "AdeptBT rev 3.56"
+	(gr_text "AdeptBT rev 3.57"
 		(at 35.25 28.5 0)
 		(layer "B.SilkS")
 		(uuid "4c775866-50c7-43ee-8809-8ca5d14031da")
@@ -19608,14 +19608,6 @@
 		(uuid "fb5b9e12-06bc-47b5-a5f1-af64371d27e6")
 	)
 	(via
-		(at 42.85 24.75)
-		(size 0.8)
-		(drill 0.4)
-		(layers "F.Cu" "B.Cu")
-		(net "VIN")
-		(uuid "00266ebb-f670-4017-b933-6fe5a4a8a784")
-	)
-	(via
 		(at 48.25 30.75)
 		(size 0.8)
 		(drill 0.4)
@@ -19654,14 +19646,6 @@
 		(layer "B.Cu")
 		(net "VIN")
 		(uuid "27aba444-6df9-4b69-8a3c-aabada9a2abd")
-	)
-	(segment
-		(start 42.1 25.5)
-		(end 42.85 24.75)
-		(width 0.8)
-		(layer "B.Cu")
-		(net "VIN")
-		(uuid "39bfc9b5-e64c-49cc-beff-395b549afc42")
 	)
 	(segment
 		(start 43.075 30.75)
@@ -20976,14 +20960,6 @@
 		(uuid "6e728335-d9d5-4878-8369-7eaf8e1d602a")
 	)
 	(segment
-		(start 77.5 36)
-		(end 77.5 39)
-		(width 0.8)
-		(layer "F.Cu")
-		(net "VM2")
-		(uuid "791046a2-3788-4c49-93e6-a01537099ed4")
-	)
-	(segment
 		(start 77 35.5)
 		(end 76.7 35.2)
 		(width 0.25)
@@ -21054,14 +21030,6 @@
 		(layer "F.Cu")
 		(net "VM2")
 		(uuid "ff8a6fc7-07cf-4cde-bf0d-1925727a2391")
-	)
-	(via
-		(at 77.5 39)
-		(size 0.8)
-		(drill 0.4)
-		(layers "F.Cu" "B.Cu")
-		(net "VM2")
-		(uuid "66239d2f-d92b-4fc8-856f-cd2762c1b134")
 	)
 	(via
 		(at 82 39)
@@ -21168,12 +21136,12 @@
 		(uuid "201a1cd4-acf2-4977-a1f5-78c009aff0fc")
 	)
 	(segment
-		(start 41.5 37.5)
-		(end 41.5 47)
+		(start 41.5 47.08)
+		(end 41.5 37.5)
 		(width 0.4)
 		(layer "F.Cu")
 		(net "+3V3")
-		(uuid "2090534a-2362-4ea5-a597-be8a4c1951fa")
+		(uuid "2080442f-90b6-4e87-b7d2-501a0958520c")
 	)
 	(segment
 		(start 31.495 49.62)
@@ -21222,6 +21190,14 @@
 		(layer "F.Cu")
 		(net "+3V3")
 		(uuid "46c6e45d-c44e-4afc-a2fa-61f07c504e8e")
+	)
+	(segment
+		(start 39 47.08)
+		(end 41.5 47.08)
+		(width 0.4)
+		(layer "F.Cu")
+		(net "+3V3")
+		(uuid "4819add8-7fbc-43bc-96bb-020933b3e375")
 	)
 	(segment
 		(start 28.6 29)
@@ -21280,14 +21256,6 @@
 		(uuid "b2f58fe7-5360-4a68-a526-11f0ed21e3cf")
 	)
 	(segment
-		(start 41.42 47.08)
-		(end 41.5 47)
-		(width 0.4)
-		(layer "F.Cu")
-		(net "+3V3")
-		(uuid "c4639422-6369-48fc-a091-1fade1565045")
-	)
-	(segment
 		(start 16 30.925)
 		(end 16 30.75)
 		(width 0.4)
@@ -21302,14 +21270,6 @@
 		(layer "F.Cu")
 		(net "+3V3")
 		(uuid "c9f1815f-ead3-44a5-9f70-424b7eede51e")
-	)
-	(segment
-		(start 39 47.08)
-		(end 41.42 47.08)
-		(width 0.4)
-		(layer "F.Cu")
-		(net "+3V3")
-		(uuid "ca0a6445-12dc-4b9c-bfdc-721193f0b442")
 	)
 	(segment
 		(start 33.88 49.62)
@@ -21374,14 +21334,6 @@
 		(layers "F.Cu" "B.Cu")
 		(net "+3V3")
 		(uuid "7fa647a2-96fd-4f0a-9845-ae2b6eaa2577")
-	)
-	(via
-		(at 41.5 47)
-		(size 0.7)
-		(drill 0.35)
-		(layers "F.Cu" "B.Cu")
-		(net "+3V3")
-		(uuid "83ee8183-437f-4f25-a325-cdf42cc52e41")
 	)
 	(via
 		(at 49.5 37.5)
