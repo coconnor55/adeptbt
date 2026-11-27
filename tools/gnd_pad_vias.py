@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Place GND vias (+ short dogbones) for SMD GND pads — no signal routing.
 
-PTH GND pads already reach inner planes; skip them.
+Most PTH GND pads already reach inner planes; skip them. Exception:
+`CONNECTOR_PTH_STITCH` (USB / DC / BAT / PWR jacks) — place a stitch via
+board-inward of each PTH GND pad so F/B pours and shells are not islands.
 
 QFN with exposed pad (`QFN_EP_THERMAL`: U2/U3/U5):
   - thermal via array **in** the EP
@@ -21,7 +23,7 @@ Vias/dogbones are locked so Freerouting (ignore GND) will not rip them.
 
 Skip any via that would violate copper clearance or hole clearance vs foreign
 pads/NPTH (same rules as board DRC minima). Also skip vias whose copper or
-hole overlaps the source SMD pad (no via-in-pad / pad-edge vias).
+hole overlaps the source pad (no via-in-pad / pad-edge vias).
 
   /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3 \\
     tools/gnd_pad_vias.py [--wipe] [--no-bump]
@@ -66,6 +68,9 @@ ANT = (5.5, 50.0, 20.5, 53.8)
 
 # EP thermal array + pin→EP copper; no per-pin vias (TMC2209, MCP73871)
 QFN_EP_THERMAL = frozenset({"U2", "U3", "U5"})
+
+# PTH GND on these connectors still needs a nearby stitch via (pour / shell).
+CONNECTOR_PTH_STITCH = frozenset({"J_USB1", "J_DC1", "J_PWR1", "J_BAT1"})
 
 # ref → unit vector in board XY (KiCad Y-down). TE screw GNDs toward outline.
 VIA_DIR_EXCEPT: dict[str, tuple[float, float]] = {
@@ -352,15 +357,21 @@ def pick_via_xy(
     step: float,
     dia: float,
     drill: float,
+    *,
+    primary_only: bool = False,
 ) -> tuple[float, float] | None:
-    """Try primary/longer/perpendicular offsets; None if nothing clears DRC minima."""
+    """Try primary/longer/perpendicular offsets; None if nothing clears DRC minima.
+
+    primary_only: connector PTH stitches — stay on the inward ray (no outboard perp).
+    """
     cands: list[tuple[float, float]] = []
     if abs(ux) >= 1e-9 or abs(uy) >= 1e-9:
-        for scale in (1.0, 1.35, 1.7, 2.2, 2.8, 3.5):
+        for scale in (1.0, 1.35, 1.7, 2.2, 2.8, 3.5, 4.2, 5.0):
             s = step * scale
             cands.append((px + ux * s, py + uy * s))
-            cands.append((px - uy * s, py + ux * s))
-            cands.append((px + uy * s, py - ux * s))
+            if not primary_only:
+                cands.append((px - uy * s, py + ux * s))
+                cands.append((px + uy * s, py - ux * s))
     else:
         cands.append((px, py))
     seen: set[tuple[float, float]] = set()
@@ -430,6 +441,24 @@ def via_offset_dir(
     if small:
         return -ux, -uy  # outside the body
     return ux, uy  # under / into the body
+
+
+def connector_pth_dir(ref: str, px: float, py: float) -> tuple[float, float]:
+    """Unit vector for connector PTH stitch — into the board, not off the edge."""
+    # Fixed inward normals for edge-mounted jacks (KiCad Y-down).
+    fixed = {
+        "J_USB1": (1.0, 0.0),  # left edge → east
+        "J_DC1": (1.0, 0.0),  # left edge → east
+        "J_BAT1": (0.0, 1.0),  # top → south
+        "J_PWR1": (0.0, 1.0),  # top → south
+    }
+    if ref in fixed:
+        return fixed[ref]
+    dx, dy = BOARD_W * 0.5 - px, BOARD_H * 0.5 - py
+    dist = math.hypot(dx, dy)
+    if dist < 0.05:
+        return 1.0, 0.0
+    return dx / dist, dy / dist
 
 
 def add_manhattan_tie(board, px: float, py: float, ex: float, ey: float, net) -> int:
@@ -568,6 +597,7 @@ def main() -> int:
     n_skip_clr = 0
     n_ep_via = 0
     n_ep_tie = 0
+    n_conn_pth = 0
 
     for fp in board.GetFootprints():
         ref = fp.GetReference()
@@ -587,18 +617,30 @@ def main() -> int:
         for pad in fp.Pads():
             if pad.GetNetname() != "GND":
                 continue
-            if pad_drill_mm(pad) > 0.05:
+            is_pth = pad_drill_mm(pad) > 0.05
+            if is_pth and ref not in CONNECTOR_PTH_STITCH:
                 n_skip_pth += 1
                 continue
-            n_smd += 1
+            if not is_pth:
+                n_smd += 1
             px, py = to_mm(pad.GetPosition().x), to_mm(pad.GetPosition().y)
             sx, sy = to_mm(pad.GetSize().x), to_mm(pad.GetSize().y)
 
-            if sx >= EP_MIN and sy >= EP_MIN:
+            if (not is_pth) and sx >= EP_MIN and sy >= EP_MIN:
                 n_skip_ep += 1
                 continue
 
-            ux, uy = via_offset_dir(ref, fx, fy, px, py, small)
+            if is_pth:
+                ux, uy = connector_pth_dir(ref, px, py)
+                tag = "conn-pth"
+            else:
+                ux, uy = via_offset_dir(ref, fx, fy, px, py, small)
+                if ref in VIA_DIR_EXCEPT:
+                    tag = "except"
+                elif small:
+                    tag = "small"
+                else:
+                    tag = "body"
             if abs(ux) >= 1e-9 or abs(uy) >= 1e-9:
                 edge = pad_exit_along(sx, sy, ux, uy)
             else:
@@ -618,17 +660,12 @@ def main() -> int:
                 step,
                 VIA_DIA,
                 VIA_DRILL,
+                primary_only=is_pth,
             )
             if pos is None:
                 n_skip_clr += 1
                 continue
             vx, vy = pos
-            if ref in VIA_DIR_EXCEPT:
-                tag = "except"
-            elif small:
-                tag = "small"
-            else:
-                tag = "body"
             if args.dry_run:
                 print(
                     f"via[{tag}] {ref} p{pad.GetNumber()} "
@@ -636,17 +673,21 @@ def main() -> int:
                 )
                 placed.append((vx, vy))
                 n_via += 1
+                if is_pth:
+                    n_conn_pth += 1
                 continue
             if add_via(board, vx, vy, gnd):
                 placed.append((vx, vy))
                 n_via += 1
+                if is_pth:
+                    n_conn_pth += 1
                 n_dog += add_dog(board, px, py, vx, vy, gnd)
 
     if args.dry_run:
         print(
-            f"dry-run: smd_gnd={n_smd} vias≈{n_via} ep_vias={n_ep_via} "
-            f"ep_ties={n_ep_tie} skip_pth={n_skip_pth} skip_ep={n_skip_ep} "
-            f"skip_clearance={n_skip_clr}"
+            f"dry-run: smd_gnd={n_smd} vias≈{n_via} conn_pth={n_conn_pth} "
+            f"ep_vias={n_ep_via} ep_ties={n_ep_tie} skip_pth={n_skip_pth} "
+            f"skip_ep={n_skip_ep} skip_clearance={n_skip_clr}"
         )
         return 0
 
@@ -655,7 +696,7 @@ def main() -> int:
     print(
         f"gnd_pad_vias: wiped_tracks={wiped[0]} wiped_zones={wiped[1]} "
         f"stripped_locked_gnd_vias={stripped[0]} stripped_locked_gnd_tracks={stripped[1]} "
-        f"smd_gnd={n_smd} vias={n_via} dogbones={n_dog} "
+        f"smd_gnd={n_smd} vias={n_via} dogbones={n_dog} conn_pth={n_conn_pth} "
         f"ep_vias={n_ep_via} ep_ties={n_ep_tie} "
         f"skip_pth={n_skip_pth} skip_ep={n_skip_ep} skip_clearance={n_skip_clr} "
         f"rev={rev} → {PCB}"
