@@ -10,6 +10,8 @@ VIN may go to **18 V** (auto). Wall-wart inlet is **C84007** DC-005C (**5.5×2.0
 
 Related EcoSpring / pump work was a prior chat seed; AdeptBT is the shared motion+I/O board, not EcoSpring-specific.
 
+**J_STEP pin order (2026-11-27):** Keep `A1 A2 B1 B2 VM GND`. Rejected A2↔B1 swap; coils stay A1+A2 and B1+B2 (TMC OA/OB).
+
 **Silk (2026-11-22, rev 0.5):** Connector pin names are one label per pad (not a grouped string). Owner: `tools/gen_adeptbt_pcb.py` → `silk_at_pads`.
 
 **Layout (2026-11-22, rev 0.6):** J_USB origin at x=3.1 (PCB Edge mark); J_SWD on bottom edge at (30, H-2.5); connector silk outside outline+2mm.
