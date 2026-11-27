@@ -23,6 +23,7 @@ KiCad 10 project — JLCPCB-first. Schematic: `tools/gen_adeptbt_sch.py` if need
 - **Center:** U2/U3 TMC2209, `J_SWD` west of U1, `JP_V+` (1×3), `JP_VM1`/`JP_VM2` (1×2). No JP_AIN.
 - **Silk rule:** no labels past Edge.Cuts. Check: `python3 tools/check_silk.py`
 - **Stackup:** 4-layer — `In1`/`In2` solid GND. After placement changes in pcbnew: KiCad Python `tools/pour_gnd.py` (see `docs/STACKUP.md`)
+- **TMC neighborhood:** KiCad Python `tools/route_tmc_local.py` (short locked stubs + EP vias). Then `tools/freeroute_rest.sh` for the rest (ignore GND).
 
 ## JLCPCB (rev 0.4)
 

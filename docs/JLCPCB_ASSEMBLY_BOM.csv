@@ -25,13 +25,13 @@ AO3407,Q1,SOT-23,C22751455,1,AO3407,AO3407,SMT,Extended P-FET
 1k 0603,"R2,R3,R4,R5,R6",R_0603_1608Metric,C21190,5,1k,0603WAF1001T5E,SMT,Basic
 5.1k 0603,"RCC1,RCC2",R_0603_1608Metric,C23186,2,5.1k,0603WAF5101T5E,SMT,Basic
 2k 0603,RPROG1,R_0603_1608Metric,C22975,1,2k,0603WAF2001T5E,SMT,Basic
-0.12ohm 1206 SMD,"RSA1,RSA2,RSB1,RSB2",R_1206_3216Metric,C858775,4,0.12,PT1206FR-7W0R12L,SMT,Extended SMD sense — not THT
+0.10ohm 1206 SMD,"RSA1,RSA2,RSB1,RSB2",R_1206_3216Metric,C346768,4,0.10,CSR1206FKR100,SMT,Extended SMD 0.10Ω ±1% 0.5W sense — not THT
 10k 0603,"RVREF1,RVREF2",R_0603_1608Metric,C25804,2,10k,0603WAF1002T5E,SMT,Basic
 LED 0603 red,USR1,LED_0603_1608Metric,C2286,1,USR,KT-0603R,SMT,Basic red; recolor at order if desired
-PinHeader 1x03,JP_V+1,PinHeader_1x03_P2.54mm_Vertical,,1,V+,Header_1x03,THT,Hand-solder — blank LCSC; do not auto-match
-PinHeader 1x02,JP_VM1,PinHeader_1x02_P2.54mm_Vertical,,1,VM1,Header_1x02,THT,Hand-solder — blank LCSC; do not auto-match
-PinHeader 1x02,JP_VM2,PinHeader_1x02_P2.54mm_Vertical,,1,VM2,Header_1x02,THT,Hand-solder — blank LCSC; do not auto-match
-PinHeader 1x07,J_AN1,PinHeader_1x07_P2.54mm_Vertical,,1,ANALOG,Header_1x07,THT,Hand-solder — blank LCSC; do not auto-match
-Barrel 5.5x2.1 THT,J_DC1,BarrelJack_CUI_PJ-063AH_Horizontal,,1,5.5x2.1,PJ-063AH,THT,Hand-solder; SEARCH LCSC at order (doc candidate C2880552)
-PinHeader 1x06,J_DG1,PinHeader_1x06_P2.54mm_Vertical,,1,DIGITAL,Header_1x06,THT,Hand-solder — NOT an isolator; blank LCSC
-PinHeader 1x05,J_SWD1,PinHeader_1x05_P2.54mm_Vertical,,1,SWD,Header_1x05,THT,Hand-solder — blank LCSC; do not auto-match
+PinHeader 1x03,JP_V+1,PinHeader_1x03_P2.54mm_Vertical,C49257,1,V+,2.54-1*3P,THT,Extended wave; BOOMELE 1x3 male
+PinHeader 1x02,"JP_VM1,JP_VM2",PinHeader_1x02_P2.54mm_Vertical,C492401,2,VM,PZ254V-11-02P,THT,Extended wave; XFCN 1x2 male
+PinHeader 1x07,J_AN1,PinHeader_1x07_P2.54mm_Vertical,C6332200,1,ANALOG,HB-PH3-25417PB2GOP,THT,Extended wave; Hanbo 1x7 male
+Barrel DC-005C THT,J_DC1,BarrelJack_CUI_PJ-063AH_Horizontal,C84007,1,DC-005C-20A,DC-005C-20A,THT,Extended wave; HRO 3A 5.5x2.0 mate — footprint still PJ-063AH until PCB swap
+PinHeader 1x06,J_DG1,PinHeader_1x06_P2.54mm_Vertical,C37208,1,DIGITAL,2.54-1x6P,THT,Extended wave; BOOMELE 1x6 male — NOT an isolator
+PinHeader 1x05,J_SWD1,PinHeader_1x05_P2.54mm_Vertical,C6332198,1,SWD,HB-PH3-25415PB2GOP,THT,Extended wave; Hanbo 1x5 male
+Jumper shunt 2.54 1x2,"JP_V+1,JP_VM1,JP_VM2",,C100114,3,SHUNT,2.54 capped,Accessory,Loose 2-pin shunts x3 (V+ select + VM1 + VM2); not in CPL; hand-fit after headers

@@ -75,7 +75,7 @@ BAT: + / − (polarity marked)
 
 ## U2 / U3 TMC2209
 
-Wire per datasheet: VS=VM, GND pad, VCC_IO=+3V3, 5VOUT cap, charge pump C, sense R `RSA`/`RSB` 0.11 Ω to GND on `BRA`/`BRB`, STEP/DIR/ENN/PDN_UART to U1.
+Wire per datasheet: VS=VM, GND pad, VCC_IO=+3V3, 5VOUT cap, charge pump C, sense R `RSA`/`RSB` **0.10 Ω** to GND on `BRA`/`BRB`, STEP/DIR/ENN/PDN_UART to U1.
 
 ## Power path
 
@@ -85,7 +85,8 @@ Wire per datasheet: VS=VM, GND pad, VCC_IO=+3V3, 5VOUT cap, charge pump C, sense
 
 - JP_V+1: 1×3 — 3V3 / V+ / VIN (short adjacent pins: 3V3↔V+ or V+↔VIN)  
 - JP_VM1, JP_VM2: 1×2 — VIN / EXT (open = external VM)  
-- No JP_AIN — AIN is 3.3 V only; use an external divider when needed  
+- No JP_AIN — AIN is 3.3 V only; use an external divider when needed
+- Net class **Analog** (clearance **0.3 mm**, width 0.25): `AIN*` only — in `adeptbt.kicad_pro`. `VREF_*` stays **Signal** (tight TMC neighborhood).  
 
 ## Decoupling
 

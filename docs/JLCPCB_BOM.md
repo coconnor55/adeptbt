@@ -41,6 +41,12 @@ Prefer LCSC / JLCPCB assembly. **Verify live stock and LCSC codes before order.*
 | J_USB1 | USB4105-GF-A | **C3020560** | Extended |
 | J_BAT1 | S2B-PH-SM4-TB | **C295747** | Extended; DNP OK wart SKU |
 | J_STEP1/2, J_PWR1 | TE 2383941-6 | **C3816695** | SMD 3.81 mm 7 A; watch shortfall |
+| JP_VM1, JP_VM2 | XFCN PZ254V-11-02P | **C492401** | Extended wave; 1×2 male 2.54 mm |
+| JP_V+1 | BOOMELE 2.54-1*3P | **C49257** | Extended wave; 1×3 male |
+| J_SWD1 | Hanbo HB-PH3-25415PB2GOP | **C6332198** | Extended wave; 1×5 male |
+| J_DG1 | BOOMELE 2.54-1x6P | **C37208** | Extended wave; 1×6 male — not an isolator |
+| J_AN1 | Hanbo HB-PH3-25417PB2GOP | **C6332200** | Extended wave; 1×7 male |
+| JP_V+1, JP_VM1, JP_VM2 (shunts) | BOOMELE 2.54 capped | **C100114** ×3 | Loose 2-pin jumpers; not in CPL; hand-fit |
 | C1… (100n 0402) | CL05B104KO5NNNC | **C1525** | Basic — not 01005 |
 | C2 | CL10A105KB8NNNC | **C15849** | Basic |
 | C10, C20 | CL10B223KB8NNNC | **C21122** | Basic |
@@ -52,7 +58,7 @@ Prefer LCSC / JLCPCB assembly. **Verify live stock and LCSC codes before order.*
 | RCC1/2 | 5.1k 0603 | **C23186** | Basic |
 | RPROG1 | 2k 0603 | **C22975** | Basic |
 | RVREF1/2 | 10k 0603 | **C25804** | Basic |
-| RSA/RSB | PT1206FR-7W0R12L | **C858775** | Extended SMD 0.12 Ω — not THT |
+| RSA/RSB | CSR1206FKR100 | **C346768** | Extended SMD **0.10 Ω** ±1% 0.5 W — not THT; ~0.4 W @ 2 A RMS |
 | PWR1, CHG1, USR1 | KT-0603R | **C2286** | Basic red; recolor at order OK |
 
 ## Rejected auto-matches (do not re-accept)
@@ -63,14 +69,14 @@ Prefer LCSC / JLCPCB assembly. **Verify live stock and LCSC codes before order.*
 | RSA/RSB | C714389 (THT MOF) | Footprint is **1206 SMD** |
 | J_DG1 | C33845697 (ADUM340 isolator) | Part is a **1×06 header**; Comment “DIGITAL” poisoned match |
 
-## THT / hand-solder (blank LCSC)
+## THT
 
 | Designator | Part |
 |------------|------|
-| J_DC1 | 5.5×2.1 barrel (SEARCH at order; candidate C2880552) |
-| J_AN1, J_DG1, J_SWD1 | 2.54 mm headers |
-| JP_V+1, JP_VM1, JP_VM2 | 2.54 mm jumpers |
+| J_DC1 | **C84007** HRO DC-005C-20A (3 A; 5.5×2.0 mate). PCB still on `PJ-063AH` until footprint swap |
 | M1–M4 | M2 holes — mechanical only (omit from assembly BOM) |
+
+Male pin headers are locked above for **wave soldering** with the rest of THT.
 
 ## Locked decisions
 
@@ -79,7 +85,7 @@ Prefer LCSC / JLCPCB assembly. **Verify live stock and LCSC codes before order.*
 | Screw current | **7 A** TE 2383941-6 |
 | Charger | **MCP73871** (not TP4056) |
 | VIN max | **18 V** → **SMBJ24A** |
-| DC inlet | **5.5×2.1** on `VIN_RAW` parallel with screw |
+| DC inlet | **C84007** DC-005C (5.5×2.0 mate, 3 A) on `VIN_RAW` parallel with screw |
 
 ## Film-scanner / wall-wart
 

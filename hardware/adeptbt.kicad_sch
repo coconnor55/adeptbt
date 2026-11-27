@@ -1,13 +1,13 @@
 (kicad_sch
 	(version 20260306)
 	(generator "gen_adeptbt_sch")
-	(generator_version "0.13")
+	(generator_version "0.14")
 	(uuid "46fc2e97-3959-4095-a2dc-23d7ed974c68")
 	(paper "A2")
 	(title_block
 		(title "AdeptBT")
 		(date "2026-11-25")
-		(rev "0.13")
+		(rev "0.14")
 		(company "coconnor55")
 		(comment 1 "JLCPCB: Raytac C5118826, TMC C465949, TE C3816695, MCP73871 C5121473, AP63205 C2071056")
 		(comment 2 "Power path + sense Rs; CC Rd; stackup docs/STACKUP.md")
@@ -11165,7 +11165,7 @@
 				)
 			)
 		)
-		(property "Value" "0.12"
+		(property "Value" "0.10"
 			(at 125 325.08 0)
 			(effects
 				(font
@@ -11232,7 +11232,7 @@
 				)
 			)
 		)
-		(property "Value" "0.12"
+		(property "Value" "0.10"
 			(at 135 325.08 0)
 			(effects
 				(font
@@ -11995,7 +11995,7 @@
 				)
 			)
 		)
-		(property "Value" "0.12"
+		(property "Value" "0.10"
 			(at 315 325.08 0)
 			(effects
 				(font
@@ -12062,7 +12062,7 @@
 				)
 			)
 		)
-		(property "Value" "0.12"
+		(property "Value" "0.10"
 			(at 325 325.08 0)
 			(effects
 				(font

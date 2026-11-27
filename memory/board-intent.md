@@ -6,7 +6,7 @@
 
 Battery + MCP73871 + JST stay on the PCB even when unused: BOM delta is negligible; leave those parts **DNP** on scanner SKUs if desired. Same board serves portable / LiPo builds later.
 
-VIN may go to **18 V** (auto). Wall-wart inlet is **5.5×2.1 mm** barrel (`J_DC`) in parallel with screw `VIN_RAW`.
+VIN may go to **18 V** (auto). Wall-wart inlet is **C84007** DC-005C (**5.5×2.0** mate, 3 A) barrel (`J_DC`) in parallel with screw `VIN_RAW`.
 
 Related EcoSpring / pump work was a prior chat seed; AdeptBT is the shared motion+I/O board, not EcoSpring-specific.
 
@@ -55,6 +55,6 @@ Related EcoSpring / pump work was a prior chat seed; AdeptBT is the shared motio
 
 **Placement source (2026-11-23, rev 2.15):** `hardware/adeptbt.kicad_pcb` is owned by pcbnew. `tools/gen_adeptbt_pcb.py` is **stopped** (refuses to write). Snapshot: `hardware/snapshots/pcbnew-2026-11-23.kicad_pcb`. Sch rev 0.6 loads in KiCad 10 (unit prefixes fixed). Nets on PCB from `tools/apply_sch_netlist.py` (or Tools → Update PCB from Schematic). J_USB uses `AdeptBT:USB_C_GCT_16P` so pin numbers match the GCT footprint.
 
-**Version (2026-11-24, rev 3.10):** PCB `title_block` rev and B.SilkS `AdeptBT rev 3.10` (mirrored, one string) are the version owner. JLCPCB does not surcharge bottom silkscreen when `.GBO` is in the Gerber set. Status LEDs are `PWR1`/`CHG1`/`USR1`. Do not rewrite rev downward; bump z only on later ship. pcbnew owns the board file. Antenna keepout is y≥50.0 with **copperpour not_allowed**. QFN-28 pads are 0.24×0.85. Freerouting ignores GND — add explicit **GND stitch vias** after import (islands at C41/C2/USB need in-island vias). Snapshot: `hardware/snapshots/fab-crowd-stitch-3.10.kicad_pcb`.
+**Version (2026-11-25, rev 3.11):** PCB `title_block` rev and B.SilkS `AdeptBT rev 3.11` (mirrored, one string) are the version owner. Copper: Freeroute **0.8 mm** `PowerHV` (VIN/VM) + `PowerMotor` (coil A/B). JLCPCB does not surcharge bottom silkscreen when `.GBO` is in the Gerber set. Status LEDs are `PWR1`/`CHG1`/`USR1`. Do not rewrite rev downward; bump z only on later ship. pcbnew owns the board file. Antenna keepout is y≥50.0 with **copperpour not_allowed**. QFN-28 pads are 0.24×0.85. Freerouting ignores GND — stitch vias after import. Snapshot: `hardware/snapshots/fab-0p8mm-3.11.kicad_pcb`.
 
 **Routing (2026-11-24, rev 3.2):** Freerouting JAR v2.5.0 (Java 27) imported SES — 693 tracks / 89 vias. ~17 nets left (VM1/VM2 dense pads, CHG_STAT, D2/D3, SWD). Pre-existing TMC/USB pin clearances. Snapshot before: `hardware/snapshots/pre-freeroute-3.1.kicad_pcb`.

@@ -27,6 +27,14 @@ Prefer LCSC / JLCPCB assembly. **Verify live stock and LCSC codes before order.*
 | Q2, Q3 | MMBT2222A | **C8512** | Basic |
 | D2, D3 | 1N4148W | **C81598** | Basic |
 | J_STEP1, J_STEP2, J_PWR1 | TE 2383941-6 | **C3816695** | SMD 3.81 mm 7 A |
+| JP_VM1, JP_VM2 | PZ254V-11-02P | **C492401** | Wave 1×2 male |
+| JP_V+1 | 2.54-1*3P | **C49257** | Wave 1×3 male |
+| J_SWD1 | HB-PH3-25415PB2GOP | **C6332198** | Wave 1×5 male |
+| J_DG1 | 2.54-1x6P | **C37208** | Wave 1×6 male |
+| J_AN1 | HB-PH3-25417PB2GOP | **C6332200** | Wave 1×7 male |
+| Shunts ×3 | 2.54 capped | **C100114** | Loose; V+/VM1/VM2 |
+
+Canonical table: `docs/JLCPCB_BOM.md`.
 
 ## Must search at order (SMT, no locked LCSC yet)
 
@@ -38,7 +46,7 @@ Prefer LCSC / JLCPCB assembly. **Verify live stock and LCSC codes before order.*
 | L1 | 4.7 µH, 6.3×6.3 |
 | J_USB1 | GCT USB4105-xx-A mid-mount (or LCSC equiv) |
 | J_BAT1 | JST-PH 2P SMD (DNP OK wall-wart SKU) |
-| RSA1/2, RSB1/2 | 0.12 Ω 1206 sense (**schematic value**; older notes said 0.11) |
+| RSA1/2, RSB1/2 | **0.10 Ω** 1206 sense — **C346768** |
 | All ceramics / LEDs / 1k / 5.1k / 2k / 10k | Match value + package in JLC Basic |
 
 ## THT / hand-solder (exclude from SMT or after-SMT)
@@ -46,8 +54,6 @@ Prefer LCSC / JLCPCB assembly. **Verify live stock and LCSC codes before order.*
 | Designator | Part |
 |------------|------|
 | J_DC1 | 5.5×2.1 barrel (doc candidate C2880552 / PJ-063AH) |
-| J_AN1, J_DG1, J_SWD1 | 2.54 mm headers |
-| JP_V+1, JP_VM1, JP_VM2 | 2.54 mm jumpers |
 | M1–M4 | M2 holes — mechanical only |
 
 ## Locked decisions

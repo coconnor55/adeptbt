@@ -13,9 +13,17 @@ Canonical SKU table: `docs/JLCPCB_BOM.md`. This note is **why**, not a second BO
 | Buck | AP63205WU-7 C2071056 | Vin to 32 V covers 12–18 V |
 | LDO | AMS1117-3.3 C6186 | Basic |
 | TVS | **SMBJ24A** | VIN ≤18 V (auto) — not SMBJ18A |
-| Barrel | 5.5×2.1 (CUI PJ-063AH footprint in lib; LCSC equiv at order) | Not 5.3 mm; tip=`VIN_RAW`, sleeve=`GND` |
+| Barrel | **C84007** HRO DC-005C-20A (3 A, 5.5×2.0 mate) | Locked 2026-11-25. Tip=`VIN_RAW`, sleeve=`GND`. **Not** drop-in on `PJ-063AH` pads (pin pattern differs). **C55072354** 10 A rejected — different footprint; 3 A enough |
 | Outs | MMBT2222A C8512 + 1N4148W C81598 | Basic |
 
-2026-11-24. Locked passives/connectors from JLC quote after rejecting bad auto-matches (01005 for C1…, THT for RSA, ADUM for J_DG1). Full table: `docs/JLCPCB_BOM.md`. Sense = **C858775** 0.12 Ω 1206 SMD. LEDs provisional **C2286** red.
+2026-11-24. Locked passives/connectors from JLC quote after rejecting bad auto-matches (01005 for C1…, THT for RSA, ADUM for J_DG1). Full table: `docs/JLCPCB_BOM.md`. LEDs provisional **C2286** red.
+
+2026-11-25. Sense locked **0.10 Ω** 1206 **C346768** (CSR1206FKR100, ±1%, 0.5 W). Replaces **C858775** 0.12 Ω. ~1.92 A RMS at VREF=2.5 V; ~0.4 W at 2 A RMS (0.5 W part — usable, not generous; prefer 1 W 1206 when stocked).
 
 Footprint file `TE_2383945-6_…` is **geometry only** (same 3.81 mm pitch); silkscreen/value is **2383941-6**.
+
+2026-11-25. Male headers locked for JLC wave (Extended, high stock): **C492401** 1×2 (JP_VM×2), **C49257** 1×3 (JP_V+), **C6332198** 1×5 (SWD), **C37208** 1×6 (DG), **C6332200** 1×7 (AN).
+
+2026-11-25. Barrel locked **C84007** (DC-005C-20A). Needs new footprint + PCB pad swap off `BarrelJack_CUI_PJ-063AH_Horizontal` before fab.
+
+2026-11-25. Jumper shunts ×3: BOOMELE capped **C100114** (JP_V+ + JP_VM1 + JP_VM2). Only three jumper sites on the board; accessory (not CPL).

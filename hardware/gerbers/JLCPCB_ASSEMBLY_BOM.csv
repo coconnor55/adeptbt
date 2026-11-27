@@ -1,38 +1,37 @@
 Comment,Designator,Footprint,LCSC Part #,Quantity,Value,MPN,Process,Notes
 1N4148W,"D2,D3",D_SOD-123,C81598,2,1N4148W,1N4148W,SMT,Basic
-TE 2383941-6,"J_PWR1,J_STEP1,J_STEP2",TE_2383945-6_1x06_P3.81mm_SMD,C3816695,3,TE_2383941-6,TE 2383941-6,SMT,SMD screw 7A
+TE 2383941-6,"J_PWR1,J_STEP1,J_STEP2",TE_2383945-6_1x06_P3.81mm_SMD,C3816695,3,TE_2383941-6,TE 2383941-6,SMT,SMD screw 7A; Extended — check stock/shortfall
 MMBT2222A,"Q2,Q3",SOT-23,C8512,2,MMBT2222A,MMBT2222A,SMT,Basic
-MDBT50Q-1MV2,U1,COMM-SMD_MDBT50Q-1MV2-1,C5118826,1,MDBT50Q-1MV2,MDBT50Q-1MV2,SMT,Extended; Standard PCBA + X-ray; IC
-TMC2209-LA,"U2,U3",QFN-28_L5.0-W5.0-P0.50-BL-EP,C465949,2,TMC2209-LA,TMC2209-LA,SMT,Extended; X-ray; IC
+MDBT50Q-1MV2,U1,COMM-SMD_MDBT50Q-1MV2-1,C5118826,1,MDBT50Q-1MV2,MDBT50Q-1MV2,SMT,Extended; Standard PCBA + X-ray; IC; check stock
+TMC2209-LA,"U2,U3",QFN-28_L5.0-W5.0-P0.50-BL-EP,C465949,2,TMC2209-LA,TMC2209-LA,SMT,Extended; X-ray; IC; check stock
 AP63205WU-7,U4,TSOT-23-6,C2071056,1,AP63205WU-7,AP63205WU-7,SMT,Extended; IC
 MCP73871,U5,QFN-20-1EP_4x4mm_P0.5mm_EP2.5x2.5mm,C5121473,1,MCP73871,MCP73871,SMT,Extended; IC
 AMS1117-3.3,U6,SOT-223-3_TabPin2,C6186,1,AMS1117-3.3,AMS1117-3.3,SMT,Basic; IC
-100n,"C1,C3,C11,C13,C14,C21,C23,C24,C30,C42,C402",C_0402_1005Metric,,11,100n,100n,SMT,SEARCH Basic — match value+package at order
-22n/50V,"C10,C20",C_0603_1608Metric,,2,22n/50V,22n/50V,SMT,SEARCH Basic — match value+package at order
-4.7u,"C12,C22,C60,C61",C_0805_2012Metric,,4,4.7u,4.7u,SMT,SEARCH Basic — match value+package at order
-100u/25V,"C15,C25,C31",CP_Elec_6.3x5.3,,3,100u/25V,100u/25V,SMT,SEARCH Basic — match value+package at order
-1u,C2,C_0603_1608Metric,,1,1u,1u,SMT,SEARCH Basic — match value+package at order
-10u,"C4,C40,C50",C_0805_2012Metric,,3,10u,10u,SMT,SEARCH Basic — match value+package at order
-22u,"C41,C51,C412",C_0805_2012Metric,,3,22u,22u,SMT,SEARCH Basic — match value+package at order
-CHG,CHG1,LED_0603_1608Metric,,1,CHG,CHG,SMT,SEARCH Basic — match value+package at order
-SMBJ24A,D1,D_SMB,,1,SMBJ24A,SMBJ24A,SMT,SEARCH LCSC — 24V TVS SMB
-PPTC ~2A hold,F1,Fuse_1812_4532Metric,,1,PPTC_2A,PPTC ~2A hold,SMT,SEARCH LCSC — 1812 PPTC
-JST-PH 2P SMD,J_BAT1,JST_PH_S2B-PH-SM4-TB_1x02-1MP_P2.00mm_Horizontal,,1,BAT,JST-PH 2P SMD,SMT,SEARCH LCSC — DNP OK wall-wart SKU
-GCT USB4105-xx-A,J_USB1,USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal,,1,USB-C,GCT USB4105-xx-A,SMT,SEARCH LCSC — mid-mount USB-C
-4.7µH 6.3×6.3,L1,L_6.3x6.3_H3,,1,4.7uH,4.7µH 6.3×6.3,SMT,SEARCH LCSC — buck inductor
-PWR,PWR1,LED_0603_1608Metric,,1,PWR,PWR,SMT,SEARCH Basic — match value+package at order
-AO3407,Q1,SOT-23,,1,AO3407,AO3407,SMT,SEARCH LCSC — P-FET SOT-23 ≥40V
-1k,R2-R6,R_0603_1608Metric,,5,1k,1k,SMT,SEARCH Basic — match value+package at order
-5.1k,"RCC1,RCC2",R_0603_1608Metric,,2,5.1k,5.1k,SMT,SEARCH Basic — match value+package at order
-2k,RPROG1,R_0603_1608Metric,,1,2k,2k,SMT,SEARCH Basic — match value+package at order
-0.12Ω 1206,"RSA1,RSA2,RSB1,RSB2",R_1206_3216Metric,,4,0.12,0.12Ω 1206,SMT,SEARCH — sense; sch value 0.12 (docs had 0.11)
-10k,"RVREF1,RVREF2",R_0603_1608Metric,,2,10k,10k,SMT,SEARCH Basic — match value+package at order
-USR,USR1,LED_0603_1608Metric,,1,USR,USR,SMT,SEARCH Basic — match value+package at order; IC
-V+,JP_V+1,PinHeader_1x03_P2.54mm_Vertical,,1,V+,V+,THT,SEARCH — confirm LCSC at order; Hand-solder / wave — pin headers
-VM1,JP_VM1,PinHeader_1x02_P2.54mm_Vertical,,1,VM1,VM1,THT,SEARCH — confirm LCSC at order; Hand-solder / wave — pin headers
-VM2,JP_VM2,PinHeader_1x02_P2.54mm_Vertical,,1,VM2,VM2,THT,SEARCH — confirm LCSC at order; Hand-solder / wave — pin headers
-ANALOG,J_AN1,PinHeader_1x07_P2.54mm_Vertical,,1,ANALOG,ANALOG,THT,SEARCH — confirm LCSC at order; Hand-solder / wave — pin headers
-PJ-063AH / equiv,J_DC1,BarrelJack_CUI_PJ-063AH_Horizontal,,1,5.5x2.1,PJ-063AH / equiv,THT,SEARCH — doc suggests C2880552; THT often hand-solder; Often hand-solder after SMT
-DIGITAL,J_DG1,PinHeader_1x06_P2.54mm_Vertical,,1,DIGITAL,DIGITAL,THT,SEARCH — confirm LCSC at order; Hand-solder / wave — pin headers
-SWD,J_SWD1,PinHeader_1x05_P2.54mm_Vertical,,1,SWD,SWD,THT,SEARCH — confirm LCSC at order; Hand-solder / wave — pin headers
-M2,M1-M4,MountingHole_2.2mm_M2,,4,M2,M2,Mechanical,SEARCH — confirm LCSC at order; No LCSC — mounting holes
+100n 0402,"C1,C3,C11,C13,C14,C21,C23,C24,C30,C42,C402",C_0402_1005Metric,C1525,11,100n,CL05B104KO5NNNC,SMT,Basic 0402 — do not use 01005
+22n 50V 0603,"C10,C20",C_0603_1608Metric,C21122,2,22n/50V,CL10B223KB8NNNC,SMT,Basic
+4.7u 0805,"C12,C22,C60,C61",C_0805_2012Metric,C1779,4,4.7u,CL21A475KAQNNNE,SMT,Basic
+100u 25V 6.3x5.3,"C15,C25,C31",CP_Elec_6.3x5.3,C4747964,3,100u/25V,RST100UF25V004,SMT,Extended SMD elec D6.3xL5.4
+1u 0603,C2,C_0603_1608Metric,C15849,1,1u,CL10A105KB8NNNC,SMT,Basic
+10u 0805,"C4,C40,C50",C_0805_2012Metric,C15850,3,10u,CL21A106KAYNNNE,SMT,Basic
+22u 0805,"C41,C51,C412",C_0805_2012Metric,C45783,3,22u,CL21A226MAQNNNE,SMT,Basic
+LED 0603 red,CHG1,LED_0603_1608Metric,C2286,1,CHG,KT-0603R,SMT,Basic red; recolor at order if desired
+SMBJ24A,D1,D_SMB,C5178956,1,SMBJ24A,SMBJ24A,SMT,Extended TVS
+PPTC 2A 1812,F1,Fuse_1812_4532Metric,C2760293,1,PPTC_2A,SMD1812-200C-30V,SMT,Extended 2A hold 30V
+JST-PH 2P SMD,J_BAT1,JST_PH_S2B-PH-SM4-TB_1x02-1MP_P2.00mm_Horizontal,C295747,1,BAT,S2B-PH-SM4-TB,SMT,Extended; DNP OK wall-wart SKU
+GCT USB4105-GF-A,J_USB1,USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal,C3020560,1,USB-C,USB4105-GF-A,SMT,Extended mid-mount USB-C
+4.7uH 6.3x6.3,L1,L_6.3x6.3_H3,C703091,1,4.7uH,LQH66SN4R7M03L,SMT,Extended buck inductor
+LED 0603 red,PWR1,LED_0603_1608Metric,C2286,1,PWR,KT-0603R,SMT,Basic red; recolor at order if desired
+AO3407,Q1,SOT-23,C22751455,1,AO3407,AO3407,SMT,Extended P-FET
+1k 0603,"R2,R3,R4,R5,R6",R_0603_1608Metric,C21190,5,1k,0603WAF1001T5E,SMT,Basic
+5.1k 0603,"RCC1,RCC2",R_0603_1608Metric,C23186,2,5.1k,0603WAF5101T5E,SMT,Basic
+2k 0603,RPROG1,R_0603_1608Metric,C22975,1,2k,0603WAF2001T5E,SMT,Basic
+0.10ohm 1206 SMD,"RSA1,RSA2,RSB1,RSB2",R_1206_3216Metric,C346768,4,0.10,CSR1206FKR100,SMT,Extended SMD 0.10Ω ±1% 0.5W sense — not THT
+10k 0603,"RVREF1,RVREF2",R_0603_1608Metric,C25804,2,10k,0603WAF1002T5E,SMT,Basic
+LED 0603 red,USR1,LED_0603_1608Metric,C2286,1,USR,KT-0603R,SMT,Basic red; recolor at order if desired
+PinHeader 1x03,JP_V+1,PinHeader_1x03_P2.54mm_Vertical,C49257,1,V+,2.54-1*3P,THT,Extended wave; BOOMELE 1x3 male
+PinHeader 1x02,"JP_VM1,JP_VM2",PinHeader_1x02_P2.54mm_Vertical,C492401,2,VM,PZ254V-11-02P,THT,Extended wave; XFCN 1x2 male
+PinHeader 1x07,J_AN1,PinHeader_1x07_P2.54mm_Vertical,C6332200,1,ANALOG,HB-PH3-25417PB2GOP,THT,Extended wave; Hanbo 1x7 male
+Barrel DC-005C THT,J_DC1,BarrelJack_CUI_PJ-063AH_Horizontal,C84007,1,DC-005C-20A,DC-005C-20A,THT,Extended wave; HRO 3A 5.5x2.0 mate — footprint still PJ-063AH until PCB swap
+PinHeader 1x06,J_DG1,PinHeader_1x06_P2.54mm_Vertical,C37208,1,DIGITAL,2.54-1x6P,THT,Extended wave; BOOMELE 1x6 male — NOT an isolator
+PinHeader 1x05,J_SWD1,PinHeader_1x05_P2.54mm_Vertical,C6332198,1,SWD,HB-PH3-25415PB2GOP,THT,Extended wave; Hanbo 1x5 male
+Jumper shunt 2.54 1x2,"JP_V+1,JP_VM1,JP_VM2",,C100114,3,SHUNT,2.54 capped,Accessory,Loose 2-pin shunts x3 (V+ select + VM1 + VM2); not in CPL; hand-fit after headers

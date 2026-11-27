@@ -71,6 +71,10 @@ Do not use bare `PWR`/`CHG`/`USR` as references — KiCad annotation requires a 
 
 Board rev lives in `hardware/adeptbt.kicad_pcb` title_block `(rev …)` and silkscreen `rev x.y` (from **3.9**: **B.SilkS**, mirrored, with `AdeptBT`). Keep both in sync and only increment z on later ships. Do not reset to an older 2.x series. JLCPCB does not charge extra for bottom silk vs top — include `.GBO` in the Gerber ZIP.
 
+## 2026-11-25 — KiCad save can wipe agent .pro edits
+
+Closing pcbnew/eeschema with an older in-memory project overwrites `adeptbt.kicad_pro` and can drop net classes (e.g. Analog). Edit `.kicad_pro` only while the project is closed, or reload from disk before save. After agent netclass edits: reopen project and confirm Board Setup → Net Classes before saving anything.
+
 ## 2026-11-24 — Freerouting leftovers: no invented crossings
 
 For Freerouting leftovers on this density, re-export DSN and run Freerouting again. Do not A*/bridge open pairs through existing copper — that creates shorts. Safe cleanup: widen to ≥0.2 mm, shrink `ant_keepout` south of U1 pads, set `GND_F` pad connection FULL, refill. Leave pour islands if bridging crosses +5V.
@@ -82,6 +86,14 @@ For Freerouting leftovers on this density, re-export DSN and run Freerouting aga
 ## 2026-11-24 — Freerouting leaves zero GND vias
 
 Freerouting with `ignore_net_classes=GND` routes signals on In1/In2 and adds **no** GND stitch vias. After SES import, place clearance-checked through vias on GND (and in-island vias for orphan F.Cu pours at C41/C2/USB). Blind F-only bridges often short; through vias must clear foreign copper on all four layers.
+
+## 2026-11-26 — Freerouting ignore GND needs a clean DSN class name
+
+`ignore_net_classes=GND` matches the **DSN class token**, not the net name. KiCad often exports `Signal,GND` / `PowerMotor,Signal`. Ignoring `GND` alone does nothing — Freerouting then draws long GND runs (J_STEP1-6 → caps). Own netclass + pattern in `.kicad_pro`, then rewrite dual names to the primary (`Signal,GND`→`GND`, `PowerMotor,Signal`→`PowerMotor`) before Freeroute. `neck_width_um` (was 200) necks PowerMotor off 0.8 mm.
+
+## 2026-11-26 — Freerouting -de/-do is batch; GUI vanishes
+
+Passing both `-de` and `-do` enables batch autorouter (`autorouter.enabled` implicit). With a short `dialog_confirmation_timeout`, the clearance-warning dialog auto-dismisses and the window closes before you can watch. To watch: open with `-de` only (`tools/freeroute_gui.sh`), start autoroute in the UI, save `.ses`, then `tools/import_freeroute_ses.sh`.
 
 ## 2026-11-24 — check_silk edge refs and Y-down rotate
 
@@ -99,6 +111,38 @@ Do not use ranges (`R2-R6`, `M1-M4`) in the assembly BOM. Use comma lists (`R2,R
 
 Do not trust Comment/value keyword matches. Reject 01005 for 0402 footprints, THT resistors for 1206 sense, and isolators for headers named DIGITAL. Lock LCSC in `JLCPCB_ASSEMBLY_BOM.csv` before re-upload.
 
+## 2026-11-25 — Do not blind-widen Freerouted tracks
+
+On this density, raising coil/VM track width in place (0.25→1.0 mm) creates hundreds of clearance/shorts. Change the netclass, rip the affected nets, and Freeroute again.
+
+## 2026-11-25 — DC-005C: jack OD ≠ mate plug
+
+HRO DC-005C datasheet **ø6.4** is the jack barrel OD. The **mate plug is 5.5 mm** (2.0 mm tip). Do not call C84007 a 6.4 mm plug. LCSC “Outside Contact Diameter 6.4 mm” is the jack, not the wall-wart.
+
+## 2026-11-25 — Barrel “does not fit as-is” means pins
+
+C84007 / C55072354 vs board `PJ-063AH` is a **hole pattern** mismatch (tip/sleeve/MP layout), not that the body fails the board envelope. Body size is similar; pads are not drop-in.
+
 ## 2026-11-25 — Q_PMOS / Q_NPN pin lib offsets must match the library
 
 For Q_PMOS (G=pin1, S=pin2, D=pin3), the KiCad library offsets are G=(-5.08,0), S=(2.54,-5.08), D=(2.54,5.08). Swapping S and D swaps VIN/VIN_F on Q1. Always verify lib offsets from the `lib_symbols` block in the schematic snapshot — do not guess from the schematic symbol orientation. When a wire crosses a pin that falls between its endpoints, KiCad connects that pin to the wire net; route around or use labels.
+
+## 2026-11-26 — GND via: small outside, large under body, QFN EP array
+
+`gnd_pad_vias.py` walks every SMD GND pad. Skip PTH. `QFN_EP_THERMAL` (U2/U3/U5): thermal via array in EP + F.Cu ties from package GND pins → EP (100% horizontal and/or vertical only — no diagonals); no per-pin vias. Other EPs: skip. ≤2 SMD pads: via outside. Larger: toward origin. `VIA_DIR_EXCEPT` = TE screws only. Repeatable: wipe → this script → Freeroute.
+
+## 2026-11-26 — gnd_pad_vias wipe must re-exec
+
+After mass `Remove()` of tracks/zones, same-process `LoadBoard` returns a dead SWIG object (`FindNet` missing). Wipe, save, then place vias in a child process — do not reload in the wipe process.
+
+## 2026-11-26 — Do not overwrite user footprint placement
+
+When the user has already placed parts (or asks to start from their placement), restore from their board/snapshot and only wipe copper / vias / Freeroute. Do not invent new coordinates for U2/satellites. Sync `route_tmc_local` PLACE to the board after their moves — never the other way around for an active layout pass.
+
+## 2026-11-26 — Vias path “end of script” includes DSN export
+
+When the user asks to run wipe/`gnd_pad_vias` to the end of the script (and stop before autoroute), also export Specctra DSN to `hardware/exports/adeptbt_after_gnd_vias.dsn` and normalize netclass names (incl. dedicated `GND`). Do not launch Freerouting unless they ask.
+
+## 2026-11-27 — gnd_pad_vias must clear foreign pads
+
+Scripted GND vias/dogbones must pass copper clearance (≥0.2 mm + slack) and hole clearance vs non-GND pads/NPTH. Try longer/perpendicular offsets; skip the pad if none fit (`skip_clearance`). Refresh without `--wipe` by stripping locked GND copper then re-exec (SWIG). Hand coil tracks stay.

@@ -17,15 +17,16 @@ Exact LCSC/DigiKey PNs locked at fab time; functional list:
 | D1 | 1 | TVS **SMBJ24A** on VIN (18 V max) |
 | D2 D3 | 2 | 1N4148W flyback — **C81598** |
 | F1 | 1 | PPTC ~2 A hold on VIN (1812) |
-| RSA1 RSB1 RSA2 RSB2 | 4 | 0.11 Ω sense (1206) |
+| RSA1 RSB1 RSA2 RSB2 | 4 | **0.10 Ω** sense (1206) — **C346768** |
 | RPROG1 | 1 | 2 kΩ MCP73871 PROG1 (~500 mA) |
 | J_USB | 1 | USB-C receptacle (16-pin mid-mount or equivalent) |
 | J_BAT | 1 | JST-PH 2.0 2-pin SMD |
 | J_STEP1 J_STEP2 J_PWR | 3 | TE 2383941-6 SMD 3.81 mm 7 A (**C3816695**) |
-| J_DC | 1 | **5.5×2.1** barrel on `VIN_RAW` (CUI PJ-063AH / Würth / LCSC) |
-| J_AN J_DG J_SWD | 3 | Pin headers 2.54 mm |
-| JP_V+ | 1 | 2.54 mm 1×3 (3V3 / V+ / VIN) |
-| JP_VM1 JP_VM2 | 2 | 2.54 mm 1×2 (VIN / EXT) |
+| J_DC | 1 | **C84007** HRO DC-005C-20A (3 A, 5.5×2.0 mate) on `VIN_RAW` — PCB footprint swap pending |
+| J_AN J_DG J_SWD | 3 | Pin headers 2.54 mm (LCSC **C6332200** / **C37208** / **C6332198**) |
+| JP_V+ | 1 | 2.54 mm 1×3 (**C49257**) |
+| JP_VM1 JP_VM2 | 2 | 2.54 mm 1×2 (**C492401**) |
+| Shunts | 3 | 2.54 mm 2-pin capped (**C100114**) — V+ + VM1 + VM2 |
 | PWR1 CHG1 USR1 | 3 | Power / charge / user LEDs (0603) |
 | R4 R5 R6 | 3 | LED series 1k (0603) |
 | C1–C31, C40–C42, C50–C51, C60–C61 | — | Decoupling — see [`docs/DECOUPLING.md`](DECOUPLING.md) |

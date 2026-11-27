@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gen_adeptbt_sch.py — Generate AdeptBT schematic rev 0.13 (traditional wired).
+"""gen_adeptbt_sch.py — Generate AdeptBT schematic rev 0.14 (traditional wired).
 
 Reads lib_symbols from the pre-redraw snapshot and connectivity from the
 exported JSON.  Places components in functional blocks with wires for local
@@ -263,7 +263,7 @@ def main() -> None:
     T.append(txt("Power path", 25, 22))
     T.append(
         txt(
-            "AdeptBT rev 0.13 — JLCPCB-first schematic\\n"
+            "AdeptBT rev 0.14 — JLCPCB-first schematic\\n"
             "MCU U1 Raytac MDBT50Q-1MV2  |  U2/U3 TMC2209-LA\\n"
             "U4 AP63205  |  U5 MCP73871  |  U6 AMS1117\\n"
             "VIN_RAW\\u2192F1\\u2192Q1\\u2192D1\\u2192VIN\\u2192buck\\u2192+5V\\u2192LDO\\u2192+3V3",
@@ -694,9 +694,9 @@ def main() -> None:
              x + 35, y - 5, polar=True)
 
         # Sense Rs
-        vres(f"RSA{suffix}", "0.12", fp_r12, f"BRA_{suffix}", "GND",
+        vres(f"RSA{suffix}", "0.10", fp_r12, f"BRA_{suffix}", "GND",
              x + 25, y + 10)
-        vres(f"RSB{suffix}", "0.12", fp_r12, f"BRB_{suffix}", "GND",
+        vres(f"RSB{suffix}", "0.10", fp_r12, f"BRB_{suffix}", "GND",
              x + 35, y + 10)
         vres(f"RVREF{suffix}", "10k", fp_r06, f"VREF_{suffix}", "GND",
              x + 45, y + 10)
@@ -775,13 +775,13 @@ def main() -> None:
         f"(kicad_sch\n"
         f'\t(version 20260306)\n'
         f'\t(generator "gen_adeptbt_sch")\n'
-        f'\t(generator_version "0.13")\n'
+        f'\t(generator_version "0.14")\n'
         f'\t(uuid "{SHEET_UUID}")\n'
         f'\t(paper "A2")\n'
         f"\t(title_block\n"
         f'\t\t(title "AdeptBT")\n'
         f'\t\t(date "2026-11-25")\n'
-        f'\t\t(rev "0.13")\n'
+        f'\t\t(rev "0.14")\n'
         f'\t\t(company "coconnor55")\n'
         f'\t\t(comment 1 "JLCPCB: Raytac C5118826, TMC C465949,'
         f' TE C3816695, MCP73871 C5121473, AP63205 C2071056")\n'
