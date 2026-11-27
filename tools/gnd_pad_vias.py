@@ -20,7 +20,8 @@ then place again — hand routes stay. With --wipe, clear all copper first.
 Vias/dogbones are locked so Freerouting (ignore GND) will not rip them.
 
 Skip any via that would violate copper clearance or hole clearance vs foreign
-pads/NPTH (same rules as board DRC minima).
+pads/NPTH (same rules as board DRC minima). Also skip vias whose copper or
+hole overlaps the source SMD pad (no via-in-pad / pad-edge vias).
 
   /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3 \\
     tools/gnd_pad_vias.py [--wipe] [--no-bump]
@@ -58,6 +59,8 @@ EDGE_MARGIN = 0.55  # keep via center on-board
 CLEAR_CU = 0.20
 CLEAR_HOLE = 0.25
 CLEAR_SLACK = 0.05  # keep DRC actual ≥ rule (circle pad model is optimistic)
+# Keep via copper/hole fully off the source SMD pad (no via-in-pad / edge clip)
+PAD_VIA_CLEAR = 0.10
 # keep vias out of U1 antenna keepout (STACKUP / ant_keepout)
 ANT = (5.5, 50.0, 20.5, 53.8)
 
@@ -218,8 +221,47 @@ def _foreign_pads(board):
     return out
 
 
+def _foreign_copper(board):
+    """Non-GND tracks/vias: segs (x1,y1,x2,y2,half_w), vias (x,y,r)."""
+    import pcbnew
+
+    segs: list[tuple[float, float, float, float, float]] = []
+    vias: list[tuple[float, float, float]] = []
+    for t in board.GetTracks():
+        if t.GetNetname() == "GND":
+            continue
+        if t.GetClass() == "PCB_VIA":
+            try:
+                r = to_mm(t.GetWidth(pcbnew.F_Cu)) * 0.5
+            except TypeError:
+                r = to_mm(t.GetWidth()) * 0.5
+            vias.append((to_mm(t.GetX()), to_mm(t.GetY()), r))
+            continue
+        segs.append(
+            (
+                to_mm(t.GetStart().x),
+                to_mm(t.GetStart().y),
+                to_mm(t.GetEnd().x),
+                to_mm(t.GetEnd().y),
+                to_mm(t.GetWidth()) * 0.5,
+            )
+        )
+    return segs, vias
+
+
+def _dist_point_seg(
+    px: float, py: float, x1: float, y1: float, x2: float, y2: float
+) -> float:
+    dx, dy = x2 - x1, y2 - y1
+    len2 = dx * dx + dy * dy
+    if len2 < 1e-18:
+        return math.hypot(px - x1, py - y1)
+    t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / len2))
+    return math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
+
+
 def via_clear_ok(
-    foreign, x: float, y: float, dia: float, drill: float
+    foreign, x: float, y: float, dia: float, drill: float, copper=None
 ) -> bool:
     """False if via copper/hole would violate clearance vs a foreign pad or NPTH."""
     via_r = dia * 0.5
@@ -232,6 +274,14 @@ def via_clear_ok(
             return False
         if hole_r > 0 and d < need_hole + hole_r:
             return False
+    if copper:
+        segs, vias = copper
+        for x1, y1, x2, y2, half_w in segs:
+            if _dist_point_seg(x, y, x1, y1, x2, y2) < need_cu + half_w:
+                return False
+        for vx, vy, vr in vias:
+            if math.hypot(vx - x, vy - y) < need_cu + vr:
+                return False
     return True
 
 
@@ -250,12 +300,53 @@ def dogbone_clear_ok(
     return True
 
 
+def dist_point_to_pad_rect(
+    vx: float, vy: float, px: float, py: float, sx: float, sy: float
+) -> float:
+    """Signed distance from point to axis-aligned pad rect (negative = inside)."""
+    dx = abs(vx - px) - sx * 0.5
+    dy = abs(vy - py) - sy * 0.5
+    if dx < 0.0 and dy < 0.0:
+        return max(dx, dy)  # both negative; closer to zero = nearer edge
+    if dx < 0.0:
+        dx = 0.0
+    if dy < 0.0:
+        dy = 0.0
+    return math.hypot(dx, dy)
+
+
+def via_clears_own_pad(
+    px: float,
+    py: float,
+    sx: float,
+    sy: float,
+    vx: float,
+    vy: float,
+    dia: float,
+    drill: float,
+) -> bool:
+    """False if via copper or drill intersects the source SMD pad (+ PAD_VIA_CLEAR)."""
+    d = dist_point_to_pad_rect(vx, vy, px, py, sx, sy)
+    need = max(dia * 0.5, drill * 0.5) + PAD_VIA_CLEAR
+    return d >= need
+
+
+def pad_exit_along(sx: float, sy: float, ux: float, uy: float) -> float:
+    """Distance from pad center to rect edge along unit vector (ux, uy)."""
+    tx = (sx * 0.5 / abs(ux)) if abs(ux) > 1e-9 else 1e9
+    ty = (sy * 0.5 / abs(uy)) if abs(uy) > 1e-9 else 1e9
+    return min(tx, ty)
+
+
 def pick_via_xy(
     board,
     foreign,
+    copper,
     placed: list[tuple[float, float]],
     px: float,
     py: float,
+    sx: float,
+    sy: float,
     ux: float,
     uy: float,
     step: float,
@@ -265,7 +356,7 @@ def pick_via_xy(
     """Try primary/longer/perpendicular offsets; None if nothing clears DRC minima."""
     cands: list[tuple[float, float]] = []
     if abs(ux) >= 1e-9 or abs(uy) >= 1e-9:
-        for scale in (1.0, 1.35, 1.7, 2.2, 2.8):
+        for scale in (1.0, 1.35, 1.7, 2.2, 2.8, 3.5):
             s = step * scale
             cands.append((px + ux * s, py + uy * s))
             cands.append((px - uy * s, py + ux * s))
@@ -283,7 +374,9 @@ def pick_via_xy(
             continue
         if via_too_close(placed, vx, vy):
             continue
-        if not via_clear_ok(foreign, vx, vy, dia, drill):
+        if not via_clears_own_pad(px, py, sx, sy, vx, vy, dia, drill):
+            continue
+        if not via_clear_ok(foreign, vx, vy, dia, drill, copper=copper):
             continue
         if not dogbone_clear_ok(foreign, px, py, vx, vy):
             continue
@@ -359,7 +452,7 @@ def add_manhattan_tie(board, px: float, py: float, ex: float, ey: float, net) ->
 
 
 def place_qfn_ep(
-    board, fp, gnd, placed: list[tuple[float, float]], foreign, dry_run: bool
+    board, fp, gnd, placed: list[tuple[float, float]], foreign, copper, dry_run: bool
 ) -> tuple[int, int, int]:
     """EP via array + axis-aligned pin→EP ties. Returns (n_via, n_tie, n_pin_gnd)."""
     ep = find_ep_pad(fp)
@@ -377,7 +470,7 @@ def place_qfn_ep(
         vx, vy = ex + dx, ey + dy
         if via_too_close(placed, vx, vy, min_d=0.55):
             continue
-        if not via_clear_ok(foreign, vx, vy, EP_VIA_DIA, EP_VIA_DRILL):
+        if not via_clear_ok(foreign, vx, vy, EP_VIA_DIA, EP_VIA_DRILL, copper=copper):
             continue
         if dry_run:
             print(f"via[ep] {ref} EP @({vx:.2f},{vy:.2f})")
@@ -466,6 +559,7 @@ def main() -> int:
 
     placed: list[tuple[float, float]] = []
     foreign = _foreign_pads(board)
+    copper = _foreign_copper(board)
     n_via = 0
     n_dog = 0
     n_smd = 0
@@ -478,7 +572,9 @@ def main() -> int:
     for fp in board.GetFootprints():
         ref = fp.GetReference()
         if ref in QFN_EP_THERMAL:
-            ev, et, npin = place_qfn_ep(board, fp, gnd, placed, foreign, args.dry_run)
+            ev, et, npin = place_qfn_ep(
+                board, fp, gnd, placed, foreign, copper, args.dry_run
+            )
             n_ep_via += ev
             n_ep_tie += et
             n_via += ev
@@ -503,10 +599,25 @@ def main() -> int:
                 continue
 
             ux, uy = via_offset_dir(ref, fx, fy, px, py, small)
-            half = 0.5 * max(sx, sy)
-            step = half + VIA_DIA * 0.5 + 0.2
+            if abs(ux) >= 1e-9 or abs(uy) >= 1e-9:
+                edge = pad_exit_along(sx, sy, ux, uy)
+            else:
+                edge = 0.5 * max(sx, sy)
+            step = edge + VIA_DIA * 0.5 + PAD_VIA_CLEAR
             pos = pick_via_xy(
-                board, foreign, placed, px, py, ux, uy, step, VIA_DIA, VIA_DRILL
+                board,
+                foreign,
+                copper,
+                placed,
+                px,
+                py,
+                sx,
+                sy,
+                ux,
+                uy,
+                step,
+                VIA_DIA,
+                VIA_DRILL,
             )
             if pos is None:
                 n_skip_clr += 1

@@ -146,3 +146,11 @@ When the user asks to run wipe/`gnd_pad_vias` to the end of the script (and stop
 ## 2026-11-27 — gnd_pad_vias must clear foreign pads
 
 Scripted GND vias/dogbones must pass copper clearance (≥0.2 mm + slack) and hole clearance vs non-GND pads/NPTH. Try longer/perpendicular offsets; skip the pad if none fit (`skip_clearance`). Refresh without `--wipe` by stripping locked GND copper then re-exec (SWIG). Hand coil tracks stay.
+
+## 2026-11-27 — Always run DRC after gnd_pad_vias
+
+After every `gnd_pad_vias` run (wipe or refresh), run `kicad-cli pcb drc` and report shorting/clearance (and any RSB/RSA neighborhood hits) before claiming done. Do not skip DRC.
+
+## 2026-11-27 — No via on SMD pad edge (gnd_pad_vias)
+
+Scripted dogbone vias must clear the source SMD pad outline (copper + drill + margin). Same-net overlap passes DRC but is via-in-pad / solder-wick risk. EP thermal vias stay inside the EP on purpose.
