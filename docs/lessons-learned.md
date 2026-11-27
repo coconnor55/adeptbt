@@ -162,3 +162,7 @@ Board outline is `(0,0)–(85.6,53.98)` with M1–M4 at fab coords. If Edge.Cuts
 ## 2026-11-27 — Connector PTH GND still needs stitch vias
 
 `gnd_pad_vias` must not skip PTH on `J_USB1` / `J_DC1` / `J_BAT1` / `J_PWR1`. Place a locked stitch via board-inward of each PTH GND (east for left-edge jacks) with dogbone; keep `primary_only` so perp fallback cannot land outboard.
+
+## 2026-11-27 — Signal Freeroute: strip FR power after SES
+
+`ignore_net_classes` still let Freerouting write Power*/coil copper into the SES (dual-class tokens + Default class on load). Full SES import can replace hand power. Import onto a pre-FR snap, delete unlocked PowerHV/LV/Motor/GND copper whose geometry is not on the snap, keep Signal/Analog; widen thin FR tracks to 0.25 mm (tighten locally if clearance fails).
