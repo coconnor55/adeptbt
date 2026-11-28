@@ -31,7 +31,7 @@ LED 0603 red,USR1,LED_0603_1608Metric,C2286,1,USR,KT-0603R,SMT,Basic red; recolo
 PinHeader 1x03,JP_V+1,PinHeader_1x03_P2.54mm_Vertical,C49257,1,V+,2.54-1*3P,THT,Extended wave; BOOMELE 1x3 male
 PinHeader 1x02,"JP_VM1,JP_VM2",PinHeader_1x02_P2.54mm_Vertical,C492401,2,VM,PZ254V-11-02P,THT,Extended wave; XFCN 1x2 male
 PinHeader 1x07,J_AN1,PinHeader_1x07_P2.54mm_Vertical,C6332200,1,ANALOG,HB-PH3-25417PB2GOP,THT,Extended wave; Hanbo 1x7 male
-Barrel DC-005C THT,J_DC1,BarrelJack_CUI_PJ-063AH_Horizontal,C84007,1,DC-005C-20A,DC-005C-20A,THT,Extended wave; HRO 3A 5.5x2.0 mate — footprint still PJ-063AH until PCB swap
+Barrel DC-005C THT,J_DC1,BarrelJack_HRO_DC-005C-20A_Horizontal,C84007,1,DC-005C-20A,DC-005C-20A,THT,Extended wave; HRO 3A 5.5x2.0 mate
 PinHeader 1x06,J_DG1,PinHeader_1x06_P2.54mm_Vertical,C37208,1,DIGITAL,2.54-1x6P,THT,Extended wave; BOOMELE 1x6 male — NOT an isolator
 PinHeader 1x05,J_SWD1,PinHeader_1x05_P2.54mm_Vertical,C6332198,1,SWD,HB-PH3-25415PB2GOP,THT,Extended wave; Hanbo 1x5 male
 Jumper shunt 2.54 1x2,"JP_V+1,JP_VM1,JP_VM2",,C100114,3,SHUNT,2.54 capped,Accessory,Loose 2-pin shunts x3 (V+ select + VM1 + VM2); not in CPL; hand-fit after headers

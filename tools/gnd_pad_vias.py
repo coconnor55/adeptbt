@@ -132,6 +132,20 @@ def pad_drill_mm(pad) -> float:
     return to_mm(pad.GetDrillSize().x)
 
 
+def pad_board_size_mm(pad) -> tuple[float, float]:
+    """Pad size as axis-aligned board-XY extents (handles 90° rotations).
+
+    GetSize() is pad-local. via_clears_own_pad / pad_exit_along use board XY, so a
+    −90° electrolytic (3.5×1.6 local) must be treated as 1.6×3.5 on the board or
+    the via lands on the pad (via-in-pad / “filled” look — not allowed).
+    """
+    sx, sy = to_mm(pad.GetSize().x), to_mm(pad.GetSize().y)
+    ang = abs(pad.GetOrientation().AsDegrees()) % 180.0
+    if 45.0 < ang < 135.0:
+        return sy, sx
+    return sx, sy
+
+
 def smd_pad_count(fp) -> int:
     return sum(1 for p in fp.Pads() if pad_drill_mm(p) <= 0.05)
 
@@ -624,9 +638,11 @@ def main() -> int:
             if not is_pth:
                 n_smd += 1
             px, py = to_mm(pad.GetPosition().x), to_mm(pad.GetPosition().y)
-            sx, sy = to_mm(pad.GetSize().x), to_mm(pad.GetSize().y)
+            # Local size for EP skip; board-XY size for via clearance / exit.
+            sx_loc, sy_loc = to_mm(pad.GetSize().x), to_mm(pad.GetSize().y)
+            sx, sy = pad_board_size_mm(pad)
 
-            if (not is_pth) and sx >= EP_MIN and sy >= EP_MIN:
+            if (not is_pth) and sx_loc >= EP_MIN and sy_loc >= EP_MIN:
                 n_skip_ep += 1
                 continue
 

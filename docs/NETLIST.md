@@ -35,10 +35,10 @@ Credit-card board. Complete this in KiCad schematic next.
 5 V+  
 6 OUT2  
 
-### J_DC (5.5×2.1 barrel)
-1 GND (sleeve)  
-2 VIN_RAW (tip / center)  
-3 switch (NC if unused)  
+### J_DC (C84007 DC-005C-20A)
+1 VIN_RAW (tip / center)  
+2 GND (sleeve)  
+MP GND (switch, tied to sleeve)  
 
 ### J_AN (1×07)
 1–4 AIN0–AIN3 (3.3 V range, direct to MCU — external divider if needed)  

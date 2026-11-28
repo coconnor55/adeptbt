@@ -7200,7 +7200,7 @@
 				)
 			)
 		)
-		(property "Value" "5.5x2.1"
+		(property "Value" "DC-005C-20A"
 			(at 38 55.08 0)
 			(effects
 				(font
@@ -7208,7 +7208,7 @@
 				)
 			)
 		)
-		(property "Footprint" "AdeptBT:BarrelJack_CUI_PJ-063AH_Horizontal"
+		(property "Footprint" "AdeptBT:BarrelJack_HRO_DC-005C-20A_Horizontal"
 			(at 38 50 0)
 			(hide yes)
 			(effects

@@ -166,3 +166,7 @@ Board outline is `(0,0)–(85.6,53.98)` with M1–M4 at fab coords. If Edge.Cuts
 ## 2026-11-27 — Signal Freeroute: strip FR power after SES
 
 `ignore_net_classes` still let Freerouting write Power*/coil copper into the SES (dual-class tokens + Default class on load). Full SES import can replace hand power. Import onto a pre-FR snap, delete unlocked PowerHV/LV/Motor/GND copper whose geometry is not on the snap, keep Signal/Analog; widen thin FR tracks to 0.25 mm (tighten locally if clearance fails).
+
+## 2026-11-28 — gnd_pad_vias pad size must be board-XY
+
+`GetSize()` is pad-local. For via clearance / exit distance use board-axis extents (swap on 90°/−90°). Unrotated size on a −90° electrolytic places the via on the pad. Do not move parts to clear a via-in-pad mistake.

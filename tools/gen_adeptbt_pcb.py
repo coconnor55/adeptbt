@@ -318,7 +318,7 @@ def build_pcb() -> str:
     dc_ang = -90
     fps.append(
         place_footprint(
-            load_mod("BarrelJack_CUI_PJ-063AH_Horizontal.kicad_mod"),
+            load_mod("BarrelJack_HRO_DC-005C-20A_Horizontal.kicad_mod"),
             dc_xy[0],
             dc_xy[1],
             dc_ang,

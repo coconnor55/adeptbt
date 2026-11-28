@@ -22,7 +22,7 @@ Exact LCSC/DigiKey PNs locked at fab time; functional list:
 | J_USB | 1 | USB-C receptacle (16-pin mid-mount or equivalent) |
 | J_BAT | 1 | JST-PH 2.0 2-pin SMD |
 | J_STEP1 J_STEP2 J_PWR | 3 | TE 2383941-6 SMD 3.81 mm 7 A (**C3816695**) |
-| J_DC | 1 | **C84007** HRO DC-005C-20A (3 A, 5.5×2.0 mate) on `VIN_RAW` — PCB footprint swap pending |
+| J_DC | 1 | **C84007** HRO DC-005C-20A (3 A, 5.5×2.0 mate) on `VIN_RAW` — footprint `BarrelJack_HRO_DC-005C-20A_Horizontal` |
 | J_AN J_DG J_SWD | 3 | Pin headers 2.54 mm (LCSC **C6332200** / **C37208** / **C6332198**) |
 | JP_V+ | 1 | 2.54 mm 1×3 (**C49257**) |
 | JP_VM1 JP_VM2 | 2 | 2.54 mm 1×2 (**C492401**) |

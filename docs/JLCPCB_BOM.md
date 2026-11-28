@@ -73,7 +73,7 @@ Prefer LCSC / JLCPCB assembly. **Verify live stock and LCSC codes before order.*
 
 | Designator | Part |
 |------------|------|
-| J_DC1 | **C84007** HRO DC-005C-20A (3 A; 5.5×2.0 mate). PCB still on `PJ-063AH` until footprint swap |
+| J_DC1 | **C84007** HRO DC-005C-20A (3 A; 5.5×2.0 mate). Footprint `BarrelJack_HRO_DC-005C-20A_Horizontal` |
 | M1–M4 | M2 holes — mechanical only (omit from assembly BOM) |
 
 Male pin headers are locked above for **wave soldering** with the rest of THT.

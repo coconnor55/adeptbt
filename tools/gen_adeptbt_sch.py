@@ -280,7 +280,7 @@ def main() -> None:
             "Connector:Barrel_Jack_MountingPin",
             "J_DC1",
             "5.5x2.1",
-            "AdeptBT:BarrelJack_CUI_PJ-063AH_Horizontal",
+            "AdeptBT:BarrelJack_HRO_DC-005C-20A_Horizontal",
             jdc_x,
             jdc_y,
             ["1", "2", "MP"],
