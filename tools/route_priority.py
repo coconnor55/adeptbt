@@ -21,11 +21,11 @@ from board_geom import BOARD_OX, BOARD_OY, BOARD_W, BOARD_H
 ROOT = Path(__file__).resolve().parents[1]
 PCB = ROOT / "hardware" / "adeptbt.kicad_pcb"
 
-# docs/STACKUP.md / tools/pour_gnd.py — fab-relative + sheet origin
+# docs/STACKUP.md / tools/pour_gnd.py — fab-relative + sheet origin (y≥50.5, x≤20.5)
 ANT_KEEP = (
     BOARD_OX + 7.5,
-    BOARD_OY + 46.0,
-    BOARD_OX + 22.5,
+    BOARD_OY + 50.5,
+    BOARD_OX + 20.5,
     BOARD_OY + 53.8,
 )
 BOARD_MARGIN = 0.4

@@ -67,7 +67,7 @@ PAD_VIA_CLEAR = 0.10
 # keep vias out of U1 antenna keepout (STACKUP / ant_keepout); fab-relative + sheet origin
 ANT = (
     BOARD_OX + 5.5,
-    BOARD_OY + 50.0,
+    BOARD_OY + 50.5,
     BOARD_OX + 20.5,
     BOARD_OY + 53.8,
 )

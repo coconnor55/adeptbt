@@ -163,6 +163,10 @@ Outline size is **85.6×53.98**. Sheet placement on landscape A4 is owned by `to
 
 User “move board to center of schematic” with an A4 pcbnew screenshot = translate the PCB on the A4 page. Do not shift `adeptbt.kicad_sch`.
 
+## 2026-11-28 — pour_gnd must not overwrite named nets; stitch must clear signals
+
+`assign_gnd_pads` must never `SetNet(GND)` on a pad that already has a non-GND name (C10/C11/C20/C21 pin2 are CPI/VM). Skip stitch vias that fail 0.2 mm clearance to non-GND copper. `ant_keepout`: fab y≥50.5 and x≤20.5 (clears J_SWD); ban copper pour only (allow existing tracks).
+
 ## 2026-11-27 — Connector PTH GND still needs stitch vias
 
 `gnd_pad_vias` must not skip PTH on `J_USB1` / `J_DC1` / `J_BAT1` / `J_PWR1`. Place a locked stitch via board-inward of each PTH GND (east for left-edge jacks) with dogbone; keep `primary_only` so perp fallback cannot land outboard.
