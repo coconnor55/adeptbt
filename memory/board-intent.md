@@ -14,6 +14,8 @@ Related EcoSpring / pump work was a prior chat seed; AdeptBT is the shared motio
 
 **Silk (2026-11-22, rev 0.5):** Connector pin names are one label per pad (not a grouped string). Owner: `tools/gen_adeptbt_pcb.py` → `silk_at_pads`.
 
+**Sheet placement (2026-11-28, PCB 3.69):** Whole board centered on landscape A4 (297×210). Edge.Cuts `(105.7,78.01)–(191.3,131.99)`. Owner: `tools/board_geom.py`.
+
 **Layout (2026-11-22, rev 0.6):** J_USB origin at x=3.1 (PCB Edge mark); J_SWD on bottom edge at (30, H-2.5); connector silk outside outline+2mm.
 
 **Layout (2026-11-22, rev 0.7):** M1–4 silk hidden (formerly misnamed H1–4); J_USB at x=5; J_AN/J_DG between M2–M4; brand “Adept BT” + v1 under U1; J_BAT silk is +/- only.

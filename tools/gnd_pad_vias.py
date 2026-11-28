@@ -41,6 +41,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from board_geom import BOARD_OX, BOARD_OY, BOARD_W, BOARD_H
+
 ROOT = Path(__file__).resolve().parents[1]
 PCB = ROOT / "hardware" / "adeptbt.kicad_pcb"
 
@@ -54,8 +56,7 @@ TIE_W = 0.25  # QFN pin → EP
 EP_MIN = 2.4
 # ≤ this many SMD pads → "small": via outside, not under the body
 SMALL_SMD_PADS = 2
-BOARD_W = 85.6
-BOARD_H = 53.98
+
 EDGE_MARGIN = 0.55  # keep via center on-board
 # Match Board Setup / netclass minima used by DRC on this board (+ slack)
 CLEAR_CU = 0.20
@@ -63,8 +64,13 @@ CLEAR_HOLE = 0.25
 CLEAR_SLACK = 0.05  # keep DRC actual ≥ rule (circle pad model is optimistic)
 # Keep via copper/hole fully off the source SMD pad (no via-in-pad / edge clip)
 PAD_VIA_CLEAR = 0.10
-# keep vias out of U1 antenna keepout (STACKUP / ant_keepout)
-ANT = (5.5, 50.0, 20.5, 53.8)
+# keep vias out of U1 antenna keepout (STACKUP / ant_keepout); fab-relative + sheet origin
+ANT = (
+    BOARD_OX + 5.5,
+    BOARD_OY + 50.0,
+    BOARD_OX + 20.5,
+    BOARD_OY + 53.8,
+)
 
 # EP thermal array + pin→EP copper; no per-pin vias (TMC2209, MCP73871)
 QFN_EP_THERMAL = frozenset({"U2", "U3", "U5"})
@@ -201,8 +207,8 @@ def via_too_close(placed: list[tuple[float, float]], x: float, y: float, min_d=0
 def clamp_on_board(x: float, y: float) -> tuple[float, float]:
     m = EDGE_MARGIN
     return (
-        min(BOARD_W - m, max(m, x)),
-        min(BOARD_H - m, max(m, y)),
+        min(BOARD_OX + BOARD_W - m, max(BOARD_OX + m, x)),
+        min(BOARD_OY + BOARD_H - m, max(BOARD_OY + m, y)),
     )
 
 
@@ -468,7 +474,7 @@ def connector_pth_dir(ref: str, px: float, py: float) -> tuple[float, float]:
     }
     if ref in fixed:
         return fixed[ref]
-    dx, dy = BOARD_W * 0.5 - px, BOARD_H * 0.5 - py
+    dx, dy = BOARD_OX + BOARD_W * 0.5 - px, BOARD_OY + BOARD_H * 0.5 - py
     dist = math.hypot(dx, dy)
     if dist < 0.05:
         return 1.0, 0.0

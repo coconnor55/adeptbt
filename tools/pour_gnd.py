@@ -14,29 +14,39 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from board_geom import BOARD_OX, BOARD_OY, BOARD_W, BOARD_H
+
 ROOT = Path(__file__).resolve().parents[1]
 PCB = ROOT / "hardware" / "adeptbt.kicad_pcb"
-W, H = 85.6, 53.98
+W, H = BOARD_W, BOARD_H
 
-# Stitch vias near decoupling clusters (board mm) — keep clear of pads.
+# Stitch vias near decoupling clusters (fab mm + sheet origin) — keep clear of pads.
 STITCH_XY = [
-    (14.0, 40.0),  # U1 3V3
-    (10.0, 28.0),  # USB
-    (65.0, 20.0),  # U2 ceramics
-    (65.0, 34.0),  # U3 ceramics
-    (76.0, 32.0),  # VS bulk C15
-    (60.0, 27.0),  # VS bulk C25
-    (16.0, 22.0),  # C31 bulk
-    (30.0, 26.0),  # power protect / F1
-    (22.0, 34.0),  # U4 buck
-    (42.0, 44.0),  # U6 LDO
-    (40.0, 28.0),  # U5 charger
-    (22.0, 40.0),  # SWD
-    (56.0, 28.0),  # sense
+    (BOARD_OX + x, BOARD_OY + y)
+    for x, y in (
+        (14.0, 40.0),  # U1 3V3
+        (10.0, 28.0),  # USB
+        (65.0, 20.0),  # U2 ceramics
+        (65.0, 34.0),  # U3 ceramics
+        (76.0, 32.0),  # VS bulk C15
+        (60.0, 27.0),  # VS bulk C25
+        (16.0, 22.0),  # C31 bulk
+        (30.0, 26.0),  # power protect / F1
+        (22.0, 34.0),  # U4 buck
+        (42.0, 44.0),  # U6 LDO
+        (40.0, 28.0),  # U5 charger
+        (22.0, 40.0),  # SWD
+        (56.0, 28.0),  # sense
+    )
 ]
 
-# Antenna keepout — U1 @ (15.0,44.45) ang 180; tip flush south edge
-ANT_KEEP = (7.5, 46.0, 22.5, 53.8)
+# Antenna keepout — fab-relative + sheet origin
+ANT_KEEP = (
+    BOARD_OX + 7.5,
+    BOARD_OY + 46.0,
+    BOARD_OX + 22.5,
+    BOARD_OY + 53.8,
+)
 
 
 def mm(x: float) -> int:
@@ -212,18 +222,12 @@ def main() -> int:
 
     # Outer pours: thermal. Inners: solid (full connection).
     margin = 0.25
-    add_rect_zone(
-        board, gnd, pcbnew.F_Cu, "GND_F", margin, margin, W - margin, H - margin, True
-    )
-    add_rect_zone(
-        board, gnd, pcbnew.B_Cu, "GND_B", margin, margin, W - margin, H - margin, True
-    )
-    add_rect_zone(
-        board, gnd, pcbnew.In1_Cu, "GND_In1", margin, margin, W - margin, H - margin, False
-    )
-    add_rect_zone(
-        board, gnd, pcbnew.In2_Cu, "GND_In2", margin, margin, W - margin, H - margin, False
-    )
+    x0, y0 = BOARD_OX + margin, BOARD_OY + margin
+    x1, y1 = BOARD_OX + W - margin, BOARD_OY + H - margin
+    add_rect_zone(board, gnd, pcbnew.F_Cu, "GND_F", x0, y0, x1, y1, True)
+    add_rect_zone(board, gnd, pcbnew.B_Cu, "GND_B", x0, y0, x1, y1, True)
+    add_rect_zone(board, gnd, pcbnew.In1_Cu, "GND_In1", x0, y0, x1, y1, False)
+    add_rect_zone(board, gnd, pcbnew.In2_Cu, "GND_In2", x0, y0, x1, y1, False)
     add_ant_keepout(board)
 
     vias = add_stitch_vias(board, gnd)

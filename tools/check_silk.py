@@ -20,9 +20,11 @@ import re
 import sys
 from pathlib import Path
 
+from board_geom import BOARD_OX, BOARD_OY, BOARD_W, BOARD_H
+
 ROOT = Path(__file__).resolve().parents[1]
 PCB = ROOT / "hardware" / "adeptbt.kicad_pcb"
-W, H = 85.6, 53.98
+W, H = BOARD_W, BOARD_H
 MARGIN = 0.15
 
 
@@ -72,7 +74,12 @@ def overlap_area(a, b) -> float:
 
 def on_board(bb, pad: float = 0.05) -> bool:
     x0, y0, x1, y1 = bb
-    return x0 >= -pad and y0 >= -pad and x1 <= W + pad and y1 <= H + pad
+    return (
+        x0 >= BOARD_OX - pad
+        and y0 >= BOARD_OY - pad
+        and x1 <= BOARD_OX + W + pad
+        and y1 <= BOARD_OY + H + pad
+    )
 
 
 # Mounting holes: square silk keepout (half-side mm) is the body for clearance

@@ -16,11 +16,18 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from board_geom import BOARD_OX, BOARD_OY, BOARD_W, BOARD_H
+
 ROOT = Path(__file__).resolve().parents[1]
 PCB = ROOT / "hardware" / "adeptbt.kicad_pcb"
 
-# docs/STACKUP.md / tools/pour_gnd.py
-ANT_KEEP = (7.5, 46.0, 22.5, 53.8)
+# docs/STACKUP.md / tools/pour_gnd.py — fab-relative + sheet origin
+ANT_KEEP = (
+    BOARD_OX + 7.5,
+    BOARD_OY + 46.0,
+    BOARD_OX + 22.5,
+    BOARD_OY + 53.8,
+)
 BOARD_MARGIN = 0.4
 CLEARANCE = 0.2
 
@@ -394,13 +401,16 @@ def stitch_gnd_at_caps(board, gnd) -> int:
             c = pad.GetCenter()
             x, y = to_mm(c.x), to_mm(c.y)
             # offset 1.2 mm toward board center
-            cx, cy = 85.6 / 2, 53.98 / 2
+            cx, cy = BOARD_OX + BOARD_W / 2, BOARD_OY + BOARD_H / 2
             dx, dy = cx - x, cy - y
             L = math.hypot(dx, dy) or 1.0
             vx, vy = x + 1.2 * dx / L, y + 1.2 * dy / L
             if in_ant(vx, vy, 0.6):
                 continue
-            if not (BOARD_MARGIN < vx < 85.6 - BOARD_MARGIN and BOARD_MARGIN < vy < 53.98 - BOARD_MARGIN):
+            if not (
+                BOARD_OX + BOARD_MARGIN < vx < BOARD_OX + BOARD_W - BOARD_MARGIN
+                and BOARD_OY + BOARD_MARGIN < vy < BOARD_OY + BOARD_H - BOARD_MARGIN
+            ):
                 continue
             v = pcbnew.PCB_VIA(board)
             v.SetPosition(pcbnew.VECTOR2I(mm(vx), mm(vy)))

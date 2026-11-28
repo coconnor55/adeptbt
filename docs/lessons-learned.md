@@ -155,9 +155,13 @@ After every `gnd_pad_vias` run (wipe or refresh), run `kicad-cli pcb drc` and re
 
 Scripted dogbone vias must clear the source SMD pad outline (copper + drill + margin). Same-net overlap passes DRC but is via-in-pad / solder-wick risk. EP thermal vias stay inside the EP on purpose.
 
-## 2026-11-27 — Edge.Cuts must stay at fab origin with parts
+## 2026-11-27 — Edge.Cuts must stay locked with parts (sheet origin in board_geom)
 
-Board outline is `(0,0)–(85.6,53.98)` with M1–M4 at fab coords. If Edge.Cuts alone translates (seen +4.25/−0.75 from `pre-powerfirst-fromstart`), mounting holes go off-board. After any wipe/restore/SES, compare Edge.Cuts bbox to fab; do not move the outline without the parts. Keep the Edge.Cuts rectangle **locked** so it cannot nudge.
+Outline size is **85.6×53.98**. Sheet placement on landscape A4 is owned by `tools/board_geom.py` (`BOARD_OX`/`BOARD_OY`). Never translate Edge.Cuts alone — move parts+copper+outline together. After wipe/restore/SES, compare Edge.Cuts bbox to `BOARD_OX/OY + W/H`. Keep the Edge.Cuts rectangle **locked**.
+
+## 2026-11-28 — “Center the board” means PCB on A4, not schematic
+
+User “move board to center of schematic” with an A4 pcbnew screenshot = translate the PCB on the A4 page. Do not shift `adeptbt.kicad_sch`.
 
 ## 2026-11-27 — Connector PTH GND still needs stitch vias
 
